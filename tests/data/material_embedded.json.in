@@ -1,0 +1,18 @@
+{
+    "type": "material",
+    "textures": [
+        {
+            "type": "image",
+            "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/tex/devCheck.jpg"
+        }
+    ],
+    "albedo": {
+        "rgb": [
+            1,
+            1,
+            1
+        ],
+        "textured": true,
+        "textureID": 0
+    }
+}

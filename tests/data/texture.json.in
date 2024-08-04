@@ -1,0 +1,5 @@
+{
+    "type": "image",
+    "compress": true,
+    "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/tex/devCheck.jpg"
+}

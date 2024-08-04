@@ -1,0 +1,9 @@
+{
+    "type": "target",
+    "compress": true,
+    "proto": "file",
+    "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/texture.a3d",
+    "cache_path": "tests/texture.a3d",
+    "target_type": "image",
+    "target_compress": true
+}

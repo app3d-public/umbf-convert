@@ -1,0 +1,9 @@
+{
+    "type": "target",
+    "compress": true,
+    "proto": "file",
+    "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/material_targeted.a3d",
+    "cache_path": "tests/material_targeted.a3d",
+    "target_type": "material",
+    "target_compress": true
+}

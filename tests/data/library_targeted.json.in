@@ -1,0 +1,59 @@
+{
+    "name": "test/testlib",
+    "type": "library",
+    "children": [
+        {
+            "name": "textures",
+            "children": [
+                {
+                    "name": "devCheck:target",
+                    "asset": {
+                        "type": "target",
+                        "proto": "file",
+                        "url": "texture.a3d",
+                        "cache_path": "@CMAKE_CURRENT_BINARY_DIR@/data/output/texture.a3d",
+                        "target_type": "image",
+                        "target_compress": true
+                    }
+                }
+            ],
+            "isFolder": true
+        },
+        {
+            "name": "materials",
+            "children": [
+                {
+                    "name": "mat:test:target",
+                    "asset": {
+                        "type": "target",
+                        "proto": "file",
+                        "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/material_targeted.a3d",
+                        "cache_path": "tests/testlib/material_targeted.a3d",
+                        "target_type": "material",
+                        "target_compress": true
+                    }
+                }
+            ],
+            "isFolder": true
+        },
+        {
+            "name": "meshes",
+            "children": [
+                {
+                    "name": "scene:test:target",
+                    "asset": {
+                        "type": "target",
+                        "proto": "file",
+                        "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/scene_targeted.a3d",
+                        "cache_path": "tests/testlib/scene_targeted.a3d",
+                        "target_type": "scene",
+                        "target_compress": true
+                    }
+                }
+            ],
+            "isFolder": true
+        }
+    ],
+    "isFolder": true,
+    "compress": true
+}

@@ -1,0 +1,69 @@
+{
+    "name": "test/testlib",
+    "type": "library",
+    "children": [
+        {
+            "name": "textures",
+            "children": [
+                {
+                    "name": "devCheck",
+                    "asset": {
+                        "type": "image",
+                        "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/tex/devCheck.jpg"
+                    }
+                }
+            ],
+            "isFolder": true
+        },
+        {
+            "name": "materials",
+            "children": [
+                {
+                    "name": "testMat",
+                    "asset": {
+                        "name": "testMat",
+                        "type": "material",
+                        "textures": [
+                            {
+                                "type": "image",
+                                "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/tex/devCheck.jpg"
+                            }
+                        ],
+                        "albedo": {
+                            "rgb": [
+                                1,
+                                1,
+                                1
+                            ],
+                            "textured": true,
+                            "textureID": 0
+                        }
+                    }
+                }
+            ],
+            "isFolder": true
+        },
+        {
+            "name": "meshes",
+            "children": [
+                {
+                    "name": "testMesh",
+                    "asset": {
+                        "type": "scene",
+                        "meshes": [
+                            {
+                                "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj",
+                                "format": "obj"
+                            }
+                        ],
+                        "textures": [],
+                        "materials": [],
+                        "compress": true
+                    }
+                }
+            ],
+            "isFolder": true
+        }
+    ],
+    "isFolder": true
+}

@@ -1,0 +1,23 @@
+{
+    "type": "scene",
+    "compress": true,
+    "meshes": [
+        {
+            "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj",
+            "format": "obj",
+            "matID": 0
+        }
+    ],
+    "textures": [],
+    "materials": [
+        {
+            "name": "mat:default:target",
+            "type": "target",
+            "proto": "file",
+            "url": "material_targeted.a3d",
+            "cache_path": "tests/material_targeted.a3d",
+            "target_type": "material",
+            "target_compress": true
+        }
+    ]
+}

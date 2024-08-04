@@ -1,0 +1,9 @@
+{
+    "type": "target",
+    "compress": true,
+    "proto": "file",
+    "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/scene_meshonly.a3d",
+    "cache_path": "tests/scene_meshonly.a3d",
+    "target_type": "scene",
+    "target_compress": true
+}

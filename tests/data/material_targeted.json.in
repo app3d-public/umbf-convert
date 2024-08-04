@@ -1,0 +1,22 @@
+{
+    "type": "material",
+    "textures": [
+        {
+            "type": "target",
+            "proto": "file",
+            "url": "texture.a3d",
+            "cache_path": "@CMAKE_CURRENT_BINARY_DIR@/data/output/texture.a3d",
+            "target_type": "image",
+            "target_compress": true
+        }
+    ],
+    "albedo": {
+        "rgb": [
+            1,
+            1,
+            1
+        ],
+        "textured": true,
+        "textureID": 0
+    }
+}
