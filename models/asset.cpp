@@ -267,7 +267,7 @@ namespace models
             url = getField<std::string>(obj, "url");
             type = getField<assets::Type>(obj, "target_type");
             compressed = getField<bool>(obj, "target_compress", false);
-            checksum = getField<u64>(obj, "target_checksum", false);
+            _targetChecksum = getField<u64>(obj, "target_checksum", false);
         }
         catch (const std::exception &e)
         {

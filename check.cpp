@@ -1,5 +1,6 @@
 #include "check.hpp"
 #include <core/log.hpp>
+#include <memory>
 
 namespace assettool
 {
@@ -16,6 +17,17 @@ namespace assettool
             return;
         }
         logInfo("Compressed: %s", assetInfo.compressed ? "true" : "false");
+        auto meta_it = asset->meta.begin();
+        if (meta_it == asset->meta.end())
+            logInfo("No meta data");
+        else
+        {
+            while (meta_it != asset->meta.end())
+            {
+                logInfo("Optional meta block: 0x%08x", meta_it->data->signature());
+                ++meta_it;
+            }
+        }
     }
 
     void printImageInfo(const std::shared_ptr<assets::Image> &image)
@@ -45,7 +57,6 @@ namespace assettool
         logInfo("Bytes per channel: %d bit", imageInfo->bytesPerChannel * 8);
         logInfo("Image format: %s", vk::to_string(imageInfo->imageFormat).c_str());
         logInfo("Size: %llu", imageInfo->imageSize());
-        logInfo("Mip levels: %d", imageInfo->mipLevels);
         scalable_free(imageInfo->pixels);
         if (isAtlas)
         {
@@ -188,7 +199,7 @@ namespace assettool
         }
         logInfo("URL: %s", targetInfo.url.c_str());
         logInfo("Type: %s", assets::toString(targetInfo.type).c_str());
-        logInfo("Checksum: %d", targetInfo.checksum);
+        logInfo("Checksum: %d", target->targetChecksum());
         logInfo("------------------------------");
     }
 

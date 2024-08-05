@@ -3,6 +3,7 @@
 #include <core/task.hpp>
 #include <iostream>
 #include "app/app.hpp"
+#include "assets/asset.hpp"
 
 #define RESULT_EXIT_SUCCESS 0
 #define RESULT_EXIT_FAILURE 1
@@ -103,10 +104,12 @@ int main(int argc, char **argv)
 #endif
     logger->setPattern("%(color_auto)%(level_name)\t%(message)%(color_off)\n");
     logging::mng->defaultLogger(logger);
+    assets::meta::addStream(assets::meta::sign_block_external, new assets::meta::ExternalStream());
 
     assettool::App app(args.input, args.output, args.mode, args.check);
     app.run();
 
+    assets::meta::clearStreams();
     TaskManager::global().await(true);
     logging::mng->await();
     logging::LogManager::destroy();

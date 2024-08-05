@@ -1,6 +1,7 @@
 #include "convert.hpp"
 #include <assets/utils.hpp>
 #include <core/log.hpp>
+#include <memory>
 
 namespace assettool
 {
@@ -42,9 +43,6 @@ namespace assettool
         imageInfo.channelCount = 4;
         imageInfo.channelNames = {"Red", "Green", "Blue", "Alpha"};
         imageInfo.imageFormat = src->imageFormat();
-        imageInfo.mipLevels = src->mipLevels();
-        if (imageInfo.mipLevels == 0)
-            imageInfo.mipLevels = assets::utils::calcMipmapLevels(imageInfo.width, imageInfo.height);
         DArray<std::shared_ptr<assets::Image2D>> textures;
         std::vector<assets::Atlas::Rect> rects;
         assert(imageInfo.pixels == nullptr);
@@ -122,7 +120,7 @@ namespace assettool
             case assets::Type::Target:
             {
                 auto model = std::static_pointer_cast<models::Target>(src);
-                asset = std::make_shared<assets::Target>(src->assetInfo(), *model);
+                asset = std::make_shared<assets::Target>(src->assetInfo(), *model, model->targetChecksum());
                 break;
             }
             default:
@@ -164,7 +162,7 @@ namespace assettool
             case assets::Type::Target:
             {
                 auto model = std::static_pointer_cast<models::Target>(src);
-                asset = std::make_shared<assets::Target>(src->assetInfo(), *model);
+                asset = std::make_shared<assets::Target>(src->assetInfo(), *model, model->targetChecksum());
                 break;
             }
             default:
@@ -258,7 +256,7 @@ namespace assettool
                     {
                         auto model = std::static_pointer_cast<models::Target>(src.asset);
                         dst.name = src.name;
-                        dst.asset = std::make_shared<assets::Target>(model->assetInfo(), *model);
+                        dst.asset = std::make_shared<assets::Target>(model->assetInfo(), *model, model->targetChecksum());
                         break;
                     }
                     default:

@@ -169,6 +169,11 @@ namespace models
         explicit Target(const models::InfoHeader &assetInfo) : AssetBase(assetInfo) {}
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
+
+        u32 targetChecksum() const { return _targetChecksum; }
+
+    private:
+        u32 _targetChecksum = 0;
     };
 
     struct FileNode
