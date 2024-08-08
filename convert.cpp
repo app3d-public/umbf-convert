@@ -1,6 +1,7 @@
 #include "convert.hpp"
 #include <assets/utils.hpp>
 #include <core/log.hpp>
+#include <ecl/scene/obj/import.hpp>
 #include <memory>
 
 namespace assettool
@@ -183,14 +184,14 @@ namespace assettool
             {
                 case models::Mesh::Format::Obj:
                 {
-                    // ecl::scene::obj::Importer importer(mesh->path());
-                    // if (!importer.load())
-                    // {
-                    //     logError("Failed to load obj: %ls", mesh->path().c_str());
-                    //     return nullptr;
-                    // }
-                    // objects.emplace_back(std::make_shared<assets::Object>());
-                    // objects.back()->meta = importer.meshes().back();
+                    ecl::scene::obj::Importer importer(mesh->path());
+                    if (importer.load() != io::file::ReadState::Success)
+                    {
+                        logError("Failed to load obj: %ls", mesh->path().c_str());
+                        return nullptr;
+                    }
+                    objects.emplace_back(std::make_shared<assets::Object>());
+                    objects.back()->meta = importer.meshes().back();
                     break;
                 }
                 default:
@@ -209,10 +210,19 @@ namespace assettool
             if (auto asset = modelToMaterialAny(material.asset, imageResources))
                 materials.emplace_back(material.name, asset);
 
-        assets::Scene::MetaInfo projectInfo;
-        projectInfo.info = "Genereated by App3D AssetTool";
-        projectInfo.author = "App3D Dev Team";
-        return std::make_shared<assets::Scene>(sceneInfo.assetInfo(), projectInfo, objects, textures, materials);
+        auto asset = std::make_shared<assets::Scene>(sceneInfo.assetInfo(), objects, textures, materials);
+        if (!asset) return nullptr;
+
+        // Meta
+        std::string info = "Genereated by App3D Asset Tool";
+        std::string author = "App3D Dev Team";
+        u32 version = vk::makeApiVersion(0, 1, 0, 0);
+        auto meta = std::make_shared<assets::meta::SceneInfo>();
+        meta->info = info;
+        meta->author = author;
+        meta->version = version;
+        asset->meta.push_front(meta);
+        return asset;
     }
 
     void prepareNodeByModel(const models::FileNode &src, assets::FileNode &dst, DArray<ImageResource> &resources)
@@ -256,7 +266,8 @@ namespace assettool
                     {
                         auto model = std::static_pointer_cast<models::Target>(src.asset);
                         dst.name = src.name;
-                        dst.asset = std::make_shared<assets::Target>(model->assetInfo(), *model, model->targetChecksum());
+                        dst.asset =
+                            std::make_shared<assets::Target>(model->assetInfo(), *model, model->targetChecksum());
                         break;
                     }
                     default:

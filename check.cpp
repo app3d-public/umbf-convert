@@ -24,7 +24,23 @@ namespace assettool
         {
             while (meta_it != asset->meta.end())
             {
-                logInfo("Optional meta block: 0x%08x", meta_it->data->signature());
+                u32 signature = meta_it->data->signature();
+                logInfo("Optional meta block: 0x%08x", signature);
+                switch (signature)
+                {
+                    case assets::meta::sign_block_scene:
+                    {
+                        auto meta = std::static_pointer_cast<assets::meta::SceneInfo>(meta_it->data);
+                        logInfo("Author: %s", meta->author.c_str());
+                        logInfo("Info: %s", meta->info.c_str());
+                        u32 version = meta->version;
+                        logInfo("Version: %d.%d.%d", vk::apiVersionMajor(version), vk::apiVersionMinor(version),
+                                vk::apiVersionPatch(version));
+                        break;
+                    }
+                    default:
+                        break;
+                }
                 ++meta_it;
             }
         }
@@ -108,9 +124,6 @@ namespace assettool
     {
         printMetaHeader(scene, assets::Type::Scene);
         logInfo("--------- Scene Info ---------");
-        auto project = scene->meta;
-        logInfo("Author: %s", project.author.c_str());
-        logInfo("Project info: %s", project.info.c_str());
         auto &objects = scene->objects;
         logInfo("Objects size: %zu", objects.size());
         for (auto &object : objects)
