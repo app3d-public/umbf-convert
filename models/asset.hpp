@@ -31,7 +31,7 @@ namespace models
     {
     public:
         explicit Image(const InfoHeader &assetInfo, const std::shared_ptr<JsonBase> &serializer = nullptr,
-                       assets::ImageTypeFlags flags = assets::ImageTypeFlagBits::tUndefined)
+                       assets::ImageTypeFlags flags = assets::ImageTypeFlagBits::undefined)
             : AssetBase(assetInfo), _type(flags), _serializer(serializer)
         {
         }
@@ -77,15 +77,11 @@ namespace models
         vk::Format imageFormat() const { return _imageFormat; }
 
         u8 bytesPerChannel() const { return _bytesPerChannel; }
-
-        u32 mipLevels() const { return _mipLevels; }
-
     private:
         u64 _width;
         u64 _height;
         u8 _bytesPerChannel;
         vk::Format _imageFormat;
-        u32 _mipLevels;
         int _precision;
         DArray<std::shared_ptr<Image2D>> _images;
     };

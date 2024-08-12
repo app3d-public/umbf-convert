@@ -24,12 +24,12 @@ namespace models
         try
         {
             _type = getField<assets::ImageTypeFlags>(obj, "texture_type", false);
-            if (_type == assets::ImageTypeFlagBits::tUndefined) _type = assets::ImageTypeFlagBits::t2D;
+            if (_type == assets::ImageTypeFlagBits::undefined) _type = assets::ImageTypeFlagBits::image2D;
             if (!_serializer)
             {
-                if (_type & assets::ImageTypeFlagBits::tAtlas)
+                if (_type & assets::ImageTypeFlagBits::atlas)
                     _serializer = std::make_shared<Atlas>();
-                else if (_type & assets::ImageTypeFlagBits::t2D)
+                else if (_type & assets::ImageTypeFlagBits::image2D)
                     _serializer = std::make_shared<Image2D>();
                 else
                     throw std::runtime_error("Unsupported texture type");
@@ -68,7 +68,6 @@ namespace models
             _precision = getField<int>(obj, "precision");
             _bytesPerChannel = getField<int>(obj, "bytesPerChannel");
             _imageFormat = getField<vk::Format>(obj, "format");
-            _mipLevels = getField<int>(obj, "mipLevels");
             for (const auto &image : getField<rapidjson::Value::ConstArray>(obj, "images"))
             {
                 InfoHeader imageInfo{};

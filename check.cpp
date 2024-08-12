@@ -51,12 +51,12 @@ namespace assettool
         printMetaHeader(image, assets::Type::Image);
         std::shared_ptr<assets::ImageInfo> imageInfo;
         bool isAtlas{false};
-        if (image->flags() & assets::ImageTypeFlagBits::tAtlas)
+        if (image->flags() & assets::ImageTypeFlagBits::atlas)
         {
             imageInfo = std::static_pointer_cast<assets::Atlas>(image->stream());
             isAtlas = true;
         }
-        else if (image->flags() & assets::ImageTypeFlagBits::t2D)
+        else if (image->flags() & assets::ImageTypeFlagBits::image2D)
             imageInfo = std::static_pointer_cast<assets::Image2D>(image->stream());
         else
             throw std::runtime_error("Unsupported texture type");
@@ -170,23 +170,35 @@ namespace assettool
         logInfo("--------- Materials Info -----");
         logInfo("Materials size: %zu", scene->materials.size());
         count = 0;
-        for (auto &node : scene->materials)
+        for (auto &asset : scene->materials)
         {
-            logInfo("#%d | Name: %s", count++, node.name.c_str());
-            auto &info = node.asset->info();
+            auto &info = asset->info();
             switch (info.type)
             {
                 case assets::Type::Invalid:
-                    logWarn("   | Type: Invalid");
+                    logWarn("#%d | Type: Invalid", count++);
                     break;
                 case assets::Type::Target:
-                    logInfo("   | Type: Target");
+                    logInfo("#%d | Type: Target", count++);
                     break;
                 case assets::Type::Material:
-                    logInfo("   | Type: Material");
+                {
+                    logInfo("#%d | Type: Material", count++);
+                    auto material = std::static_pointer_cast<assets::Material>(asset);
+                    auto it = std::find_if(material->meta.begin(), material->meta.end(), [](auto &block) {
+                        return block->signature() == assets::meta::sign_block_material;
+                    });
+                    if (it == material->meta.end())
+                        logInfo("   | Name: null");
+                    else
+                    {
+                        auto matMeta = std::static_pointer_cast<assets::meta::MaterialBlock>(*it);
+                        logInfo("   | Name: %s", matMeta->name.c_str());
+                    }
                     break;
+                }
                 default:
-                    logError("   | Incompatible type: %s", assets::toString(info.type).c_str());
+                    logError("#%d | Incompatible type: %s", count++, assets::toString(info.type).c_str());
                     break;
             }
         }

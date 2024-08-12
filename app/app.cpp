@@ -77,7 +77,8 @@ namespace assettool
         assetInfo.compressed = true;
         std::shared_ptr<models::Image2D> textureSerializer = std::make_shared<models::Image2D>();
         textureSerializer->path(_input);
-        auto imageInfo = std::make_shared<models::Image>(assetInfo, textureSerializer, assets::ImageTypeFlagBits::t2D);
+        auto imageInfo = std::make_shared<models::Image>(
+            assetInfo, textureSerializer, assets::ImageTypeFlagBits::image2D | assets::ImageTypeFlagBits::external);
         return modelToImage(imageInfo, _images);
     }
 

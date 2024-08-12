@@ -22,7 +22,7 @@ std::pair<int, Args> parseArgs(int argc, char **argv)
     args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
     args::Flag version(parser, "version", "Show version", {'v', "version"}, args::Options::KickOut);
 
-    args::Group group(parser, "Source type:", args::Group::Validators::Xor);
+    args::Group group(parser, "Source type:");
     args::Flag image(group, "image", "Image", {"image"});
     args::Flag scene(group, "scene", "Scene", {"scene"});
     args::Flag json(group, "json", "JSON Configuration", {"json"});
@@ -108,6 +108,7 @@ int main(int argc, char **argv)
     assets::meta::addStream(assets::meta::sign_block_external, new assets::meta::ExternalStream());
     assets::meta::addStream(assets::meta::sign_block_scene, new assets::meta::SceneInfoStream());
     assets::meta::addStream(assets::meta::sign_block_mesh, new assets::meta::mesh::MeshStream());
+    assets::meta::addStream(assets::meta::sign_block_material, new assets::meta::MaterialStream());
 
     assettool::App app(args.input, args.output, args.mode, args.check);
     app.run();

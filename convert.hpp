@@ -46,7 +46,7 @@ namespace assettool
                                                       DArray<ImageResource> &resources);
 
     std::shared_ptr<assets::Asset> modelToMaterialAny(std::shared_ptr<models::AssetBase> &src,
-                                                      DArray<ImageResource> &resources);
+                                                      DArray<ImageResource> &resources, const std::string &name = "");
 
     std::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, DArray<ImageResource> &images);
 

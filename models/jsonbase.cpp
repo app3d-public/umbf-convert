@@ -246,11 +246,11 @@ namespace models
         {
             auto &val = obj[key];
             if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
-            if (val == "2D") return assets::ImageTypeFlagBits::t2D;
-            if (val == "atlas") return assets::ImageTypeFlagBits::tAtlas | assets::ImageTypeFlagBits::t2D;
+            if (val == "2D") return assets::ImageTypeFlagBits::image2D;
+            if (val == "atlas") return assets::ImageTypeFlagBits::atlas | assets::ImageTypeFlagBits::image2D;
             throw std::runtime_error("Field " + std::string(key) + " is not a valid texture type");
         }
         if (required) throw std::runtime_error("Missing field " + std::string(key));
-        return assets::ImageTypeFlagBits::tUndefined;
+        return assets::ImageTypeFlagBits::undefined;
     }
 } // namespace models

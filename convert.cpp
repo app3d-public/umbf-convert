@@ -29,7 +29,7 @@ namespace assettool
         }
         logInfo("Converting image to asset");
         auto imageAsset = std::make_shared<assets::Image2D>(imageResource.image());
-        auto asset = std::make_shared<assets::Image>(info, assets::ImageTypeFlagBits::t2D, imageAsset);
+        auto asset = std::make_shared<assets::Image>(info, assets::ImageTypeFlagBits::image2D, imageAsset);
         resources.push_back(std::move(imageResource));
         return asset;
     }
@@ -80,19 +80,19 @@ namespace assettool
         }
         auto atlas = std::make_shared<assets::Atlas>(imageInfo, src->precision(), textures, rects);
         auto asset = std::make_shared<assets::Image>(
-            info, assets::ImageTypeFlagBits::t2D | assets::ImageTypeFlagBits::tAtlas, atlas);
+            info, assets::ImageTypeFlagBits::image2D | assets::ImageTypeFlagBits::atlas, atlas);
         return asset;
     }
 
     std::shared_ptr<assets::Image> modelToImage(const std::shared_ptr<models::Image> &src,
                                                 DArray<ImageResource> &resources)
     {
-        if (src->type() & assets::ImageTypeFlagBits::tAtlas)
+        if (src->type() & assets::ImageTypeFlagBits::atlas)
         {
             auto serializer = std::static_pointer_cast<models::Atlas>(src->serializer());
             return modelToImageAtlas(serializer, resources, src->assetInfo());
         }
-        else if (src->type() & assets::ImageTypeFlagBits::t2D)
+        else if (src->type() & assets::ImageTypeFlagBits::image2D)
         {
             auto serializer = std::static_pointer_cast<models::Image2D>(src->serializer());
             return modelToImage2D(serializer, resources, src->assetInfo());
@@ -144,7 +144,7 @@ namespace assettool
     }
 
     std::shared_ptr<assets::Asset> modelToMaterialAny(std::shared_ptr<models::AssetBase> &src,
-                                                      DArray<ImageResource> &resources)
+                                                      DArray<ImageResource> &resources, const std::string &name)
     {
         if (!src)
         {
@@ -158,6 +158,12 @@ namespace assettool
             {
                 auto model = std::static_pointer_cast<models::Material>(src);
                 asset = modelToMaterial(model, resources);
+                if (asset && name.length() > 0)
+                {
+                    auto meta = std::make_shared<assets::meta::MaterialBlock>();
+                    meta->name = name;
+                    asset->meta.push_front(meta);
+                }
                 break;
             }
             case assets::Type::Target:
@@ -205,11 +211,10 @@ namespace assettool
         for (auto &texture : sceneInfo.textures())
             if (auto asset = modelToImageAny(texture, imageResources)) textures.push_back(asset);
 
-        DArray<assets::Scene::MaterialNode> materials;
+        DArray<std::shared_ptr<assets::Asset>> materials;
         for (auto &material : sceneInfo.materials())
-            if (auto asset = modelToMaterialAny(material.asset, imageResources))
-                materials.emplace_back(material.name, asset);
-
+            if (auto asset = modelToMaterialAny(material.asset, imageResources, material.name))
+                materials.push_back(asset);
         auto asset = std::make_shared<assets::Scene>(sceneInfo.assetInfo(), objects, textures, materials);
         if (!asset) return nullptr;
 
