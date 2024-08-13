@@ -121,7 +121,7 @@ namespace assettool
             case assets::Type::Target:
             {
                 auto model = std::static_pointer_cast<models::Target>(src);
-                asset = std::make_shared<assets::Target>(src->assetInfo(), *model, model->targetChecksum());
+                asset = std::make_shared<assets::Target>(src->assetInfo(), model->addr(), model->metaData());
                 break;
             }
             default:
@@ -169,7 +169,7 @@ namespace assettool
             case assets::Type::Target:
             {
                 auto model = std::static_pointer_cast<models::Target>(src);
-                asset = std::make_shared<assets::Target>(src->assetInfo(), *model, model->targetChecksum());
+                asset = std::make_shared<assets::Target>(src->assetInfo(), model->addr(), model->metaData());
                 break;
             }
             default:
@@ -272,7 +272,7 @@ namespace assettool
                         auto model = std::static_pointer_cast<models::Target>(src.asset);
                         dst.name = src.name;
                         dst.asset =
-                            std::make_shared<assets::Target>(model->assetInfo(), *model, model->targetChecksum());
+                            std::make_shared<assets::Target>(model->assetInfo(), model->addr(), model->metaData());
                         break;
                     }
                     default:

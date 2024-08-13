@@ -209,22 +209,23 @@ namespace assettool
     {
         printMetaHeader(target, assets::Type::Target);
         logInfo("--------- Target Info ---------");
-        assets::TargetInfo targetInfo = target->targetInfo();
-        switch (targetInfo.proto)
+        assets::TargetAddr addr = target->addr();
+        switch (addr.proto)
         {
-            case assets::TargetInfo::Proto::File:
+            case assets::TargetProto::File:
                 logInfo("Proto: File");
                 break;
-            case assets::TargetInfo::Proto::Network:
+            case assets::TargetProto::Network:
                 logInfo("Proto: Network");
                 break;
             default:
                 logWarn("Proto: Unknown");
                 break;
         }
-        logInfo("URL: %s", targetInfo.url.c_str());
-        logInfo("Type: %s", assets::toString(targetInfo.type).c_str());
-        logInfo("Checksum: %d", target->targetChecksum());
+        logInfo("URL: %s", addr.url.c_str());
+        assets::TargetMetaData meta = target->targetMeta();
+        logInfo("Type: %s", assets::toString(meta.type).c_str());
+        logInfo("Checksum: %d", meta.checksum);
         logInfo("------------------------------");
     }
 

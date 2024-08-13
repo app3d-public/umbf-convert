@@ -152,7 +152,7 @@ namespace assettool
                     logError("Failed to deserialize target configuration: %ls", _input.c_str());
                     return nullptr;
                 }
-                return std::make_shared<assets::Target>(assetInfo, model, model.targetChecksum());
+                return std::make_shared<assets::Target>(assetInfo, model.addr(), model.metaData());
             }
             case assets::Type::Library:
             {

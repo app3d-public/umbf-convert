@@ -187,19 +187,19 @@ namespace models
     }
 
     template <>
-    assets::TargetInfo::Proto getField<assets::TargetInfo::Proto>(const rapidjson::Value &obj, const char *key, bool required)
+    assets::TargetProto getField<assets::TargetProto>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
             if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
             std::string str = val.GetString();
-            if (str == "file") return assets::TargetInfo::Proto::File;
-            if (str == "network") return assets::TargetInfo::Proto::Network;
+            if (str == "file") return assets::TargetProto::File;
+            if (str == "network") return assets::TargetProto::Network;
             throw std::runtime_error("Field " + std::string(key) + " is not a valid asset type");
         }
         if (required) throw std::runtime_error("Missing field " + std::string(key));
-        return assets::TargetInfo::Proto::Unknown;
+        return assets::TargetProto::Unknown;
     }
 
     vk::Format parseVkFormat(std::string str)

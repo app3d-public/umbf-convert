@@ -262,11 +262,11 @@ namespace models
     {
         try
         {
-            proto = getField<assets::TargetInfo::Proto>(obj, "proto");
-            url = getField<std::string>(obj, "url");
-            type = getField<assets::Type>(obj, "target_type");
-            compressed = getField<bool>(obj, "target_compress", false);
-            _targetChecksum = getField<u64>(obj, "target_checksum", false);
+            _addr.proto = getField<assets::TargetProto>(obj, "proto");
+            _addr.url = getField<std::string>(obj, "url");
+            _metaData.type = getField<assets::Type>(obj, "target_type");
+            _metaData.compressed = getField<bool>(obj, "target_compress", false);
+            _metaData.checksum = getField<u64>(obj, "target_checksum", false);
         }
         catch (const std::exception &e)
         {

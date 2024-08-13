@@ -159,17 +159,20 @@ namespace models
         bool deserializeMaterials(const rapidjson::Value &obj);
     };
 
-    class Target final : public JsonBase, public AssetBase, public assets::TargetInfo
+    class Target final : public JsonBase, public AssetBase
     {
     public:
         explicit Target(const models::InfoHeader &assetInfo) : AssetBase(assetInfo) {}
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
-        u32 targetChecksum() const { return _targetChecksum; }
+        assets::TargetAddr addr() const { return _addr; }
+
+        assets::TargetMetaData metaData() const { return _metaData; }
 
     private:
-        u32 _targetChecksum = 0;
+        assets::TargetAddr _addr;
+        assets::TargetMetaData _metaData;
     };
 
     struct FileNode
