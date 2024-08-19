@@ -197,7 +197,7 @@ namespace assettool
                         return nullptr;
                     }
                     objects.emplace_back(std::make_shared<assets::Object>());
-                    objects.back()->meta = importer.meshes().back();
+                    objects.back()->meta = importer.objects().back()->meta;
                     break;
                 }
                 default:

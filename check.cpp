@@ -135,14 +135,10 @@ namespace assettool
             logInfo("Position: %f %f %f", pos.x, pos.y, pos.z);
             logInfo("Rotation: %f %f %f", rot.x, rot.y, rot.z);
             logInfo("Scale: %f %f %f", scale.x, scale.y, scale.z);
-            logInfo("Material ID: %d", object->matID);
-            if (!object->meta)
-            {
-                logInfo("Meta block: null");
-                continue;
-            }
+            if (object->meta.begin() == object->meta.end())
+                logInfo("Meta: no");
             else
-                logInfo("Signature: 0x%08x", object->meta->signature());
+                for (auto &block : object->meta) logInfo("Meta block signature: 0x%08x", block->signature());
             logInfo("------------------------------");
         }
         logInfo("--------- Textures Info -----");
