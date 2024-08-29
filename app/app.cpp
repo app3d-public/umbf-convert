@@ -1,9 +1,7 @@
 #include "app.hpp"
-#include <assets/image.hpp>
-#include <assets/material.hpp>
-#include <assets/scene.hpp>
 #include <core/log.hpp>
 #include "../check.hpp"
+#include "../models/asset.hpp"
 
 namespace assettool
 {
@@ -32,7 +30,7 @@ namespace assettool
         }
         else
         {
-            logInfo("Asset saved to disk: %s. Checksum: %u", _output.string().c_str(), asset->checksum());
+            logInfo("Asset saved to disk: %s. Checksum: %u", _output.string().c_str(), asset->checksum);
             if (_check && !checkAsset(_output)) _statusCode = EXIT_FAILURE;
         };
     }
@@ -46,25 +44,36 @@ namespace assettool
             logError("Failed to load asset: %s", path.string().c_str());
             return false;
         }
-        switch (asset->info().type)
+        switch (asset->header.type)
         {
             case assets::Type::Image:
-                printImageInfo(std::static_pointer_cast<assets::Image>(asset));
+                switch (asset->blocks.front()->signature())
+                {
+                    case assets::sign_block::image2D:
+                    case assets::sign_block::image_atlas:
+                        printMetaHeader(asset, assets::Type::Image);
+                        printImage2D(std::static_pointer_cast<assets::Image2D>(asset->blocks.front()));
+                        if (asset->blocks.front()->signature() == assets::sign_block::image_atlas)
+                            printAtlas(std::static_pointer_cast<assets::Atlas>(asset->blocks.front()));
+                        break;
+                    default:
+                        break;
+                };
                 break;
             case assets::Type::Material:
-                printMaterialInfo(std::static_pointer_cast<assets::Material>(asset));
+                printMaterialInfo(asset);
                 break;
             case assets::Type::Scene:
-                printSceneInfo(std::static_pointer_cast<assets::Scene>(asset));
+                printSceneInfo(asset);
                 break;
             case assets::Type::Target:
-                printTargetInfo(std::static_pointer_cast<assets::Target>(asset));
+                printTargetInfo(asset);
                 break;
             case assets::Type::Library:
-                printLibraryInfo(std::static_pointer_cast<assets::Library>(asset));
+                printLibraryInfo(asset);
                 break;
             default:
-                logError("Unsupported asset type: %s", assets::toString(asset->info().type).c_str());
+                logError("Unsupported asset type: %s", assets::toString(asset->header.type).c_str());
                 return false;
         }
         return true;
@@ -72,14 +81,15 @@ namespace assettool
 
     std::shared_ptr<assets::Asset> App::getAssetByImage()
     {
-        models::InfoHeader assetInfo{};
-        assetInfo.type = assets::Type::Image;
-        assetInfo.compressed = true;
-        std::shared_ptr<models::Image2D> textureSerializer = std::make_shared<models::Image2D>();
-        textureSerializer->path(_input);
-        auto imageInfo = std::make_shared<models::Image>(
-            assetInfo, textureSerializer, assets::ImageTypeFlagBits::image2D | assets::ImageTypeFlagBits::external);
-        return modelToImage(imageInfo, _images);
+        auto asset = std::make_shared<assets::Asset>();
+        asset->header.type = assets::Type::Image;
+        asset->header.compressed = true;
+        auto imageModel = std::make_shared<models::Image2D>();
+        imageModel->path(_input);
+        auto image2D = modelToImage2D(imageModel, _images);
+        if (!image2D) return nullptr;
+        asset->blocks.push_back(image2D);
+        return asset;
     }
 
     std::shared_ptr<assets::Asset> App::getAssetByScene()
@@ -100,7 +110,12 @@ namespace assettool
         auto &mesh = sceneInfo->meshes().back();
         mesh->path(_input);
         mesh->format(it->second);
-        return modelToScene(*sceneInfo, _images);
+        auto asset = std::make_shared<assets::Asset>();
+        asset->header = assetInfo;
+        auto scene = modelToScene(*sceneInfo, _images);
+        if (!scene) return nullptr;
+        asset->blocks.push_back(scene);
+        return asset;
     }
 
     std::shared_ptr<assets::Asset> App::getAssetByJson()
@@ -112,6 +127,7 @@ namespace assettool
             logError("Failed to load asset: %ls", _input.c_str());
             return nullptr;
         }
+        std::shared_ptr<meta::Block> block;
         switch (assetInfo.type)
         {
             case assets::Type::Image:
@@ -122,7 +138,8 @@ namespace assettool
                     logError("Failed to deserialize image configuration: %ls", _input.c_str());
                     return nullptr;
                 }
-                return modelToImage(model, _images);
+                block = modelToImage(model, _images);
+                break;
             }
             case assets::Type::Material:
             {
@@ -132,7 +149,8 @@ namespace assettool
                     logError("Failed to deserialize material configuration: %ls", _input.c_str());
                     return nullptr;
                 }
-                return modelToMaterial(model, _images);
+                block = modelToMaterial(model, _images);
+                break;
             }
             case assets::Type::Scene:
             {
@@ -142,7 +160,9 @@ namespace assettool
                     logError("Failed to deserialize scene configuration: %ls", _input.c_str());
                     return nullptr;
                 }
-                return modelToScene(*model, _images);
+                auto scene = modelToScene(*model, _images);
+                block = scene;
+                break;
             }
             case assets::Type::Target:
             {
@@ -152,7 +172,8 @@ namespace assettool
                     logError("Failed to deserialize target configuration: %ls", _input.c_str());
                     return nullptr;
                 }
-                return std::make_shared<assets::Target>(assetInfo, model.addr(), model.metaData());
+                block = modelToTarget(model, _images);
+                break;
             }
             case assets::Type::Library:
             {
@@ -162,13 +183,19 @@ namespace assettool
                     logError("Failed to load library: %ls", _input.c_str());
                     return nullptr;
                 }
-                assets::FileNode root;
-                prepareNodeByModel(model.fileTree(), root, _images);
-                return std::make_shared<assets::Library>(model.assetInfo(), root);
+                auto library = std::make_shared<assets::Library>();
+                prepareNodeByModel(model.fileTree(), library->fileTree, _images);
+                block = library;
+                break;
             }
             default:
                 logError("Unsupported asset type");
                 return nullptr;
         }
+        if (!block) return nullptr;
+        auto asset = std::make_shared<assets::Asset>();
+        asset->header = assetInfo;
+        asset->blocks.push_back(block);
+        return asset;
     }
 } // namespace assettool

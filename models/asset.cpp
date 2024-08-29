@@ -1,6 +1,5 @@
 #include "asset.hpp"
 #include <core/log.hpp>
-#include "assets/library.hpp"
 
 namespace models
 {
@@ -23,16 +22,21 @@ namespace models
     {
         try
         {
-            _type = getField<assets::ImageTypeFlags>(obj, "texture_type", false);
-            if (_type == assets::ImageTypeFlagBits::undefined) _type = assets::ImageTypeFlagBits::image2D;
+            _signature = getImageType(obj, "texture_type", false);
+            if (_signature == 0) _signature = assets::sign_block::image2D;
             if (!_serializer)
             {
-                if (_type & assets::ImageTypeFlagBits::atlas)
-                    _serializer = std::make_shared<Atlas>();
-                else if (_type & assets::ImageTypeFlagBits::image2D)
-                    _serializer = std::make_shared<Image2D>();
-                else
-                    throw std::runtime_error("Unsupported texture type");
+                switch (_signature)
+                {
+                    case assets::sign_block::image2D:
+                        _serializer = std::make_shared<Image2D>();
+                        break;
+                    case assets::sign_block::image_atlas:
+                        _serializer = std::make_shared<Atlas>();
+                        break;
+                    default:
+                        throw std::runtime_error("Unsupported texture type");
+                }
             }
             else
                 logInfo("Texture already deserialized");
@@ -262,11 +266,11 @@ namespace models
     {
         try
         {
-            _addr.proto = getField<assets::TargetProto>(obj, "proto");
+            _addr.proto = getField<assets::Target::Addr::Proto>(obj, "proto");
             _addr.url = getField<std::string>(obj, "url");
-            _metaData.type = getField<assets::Type>(obj, "target_type");
-            _metaData.compressed = getField<bool>(obj, "target_compress", false);
-            _metaData.checksum = getField<u64>(obj, "target_checksum", false);
+            _header.type = getField<assets::Type>(obj, "target_type");
+            _header.compressed = getField<bool>(obj, "target_compress", false);
+            _checksum = getField<u64>(obj, "target_checksum", false);
         }
         catch (const std::exception &e)
         {

@@ -8,90 +8,61 @@ namespace assettool
     void printMetaHeader(const std::shared_ptr<assets::Asset> &asset, assets::Type dstType)
     {
         logInfo("--------- Meta Header --------");
-        const auto &assetInfo = asset->info();
-        logInfo("Type: %s", assets::toString(assetInfo.type).c_str());
-        logInfo("Checksum: %u", asset->checksum());
-        if (assetInfo.type != dstType)
+        logInfo("Type: %s", assets::toString(asset->header.type).c_str());
+        logInfo("Checksum: %u", asset->checksum);
+        if (asset->header.type != dstType)
         {
             logError("Invalid asset type");
             return;
         }
-        logInfo("Compressed: %s", assetInfo.compressed ? "true" : "false");
-        auto meta_it = asset->meta.begin();
-        if (meta_it == asset->meta.end())
+        logInfo("Compressed: %s", asset->header.compressed ? "true" : "false");
+        auto it = asset->blocks.begin();
+        if (it == asset->blocks.end())
             logInfo("No meta data");
         else
         {
-            while (meta_it != asset->meta.end())
+            while (it != asset->blocks.end())
             {
-                u32 signature = meta_it->data->signature();
+                u32 signature = (*it)->signature();
                 logInfo("Optional meta block: 0x%08x", signature);
-                switch (signature)
-                {
-                    case assets::meta::sign_block_scene:
-                    {
-                        auto meta = std::static_pointer_cast<assets::meta::SceneInfo>(meta_it->data);
-                        logInfo("Author: %s", meta->author.c_str());
-                        logInfo("Info: %s", meta->info.c_str());
-                        u32 version = meta->version;
-                        logInfo("Version: %d.%d.%d", vk::apiVersionMajor(version), vk::apiVersionMinor(version),
-                                vk::apiVersionPatch(version));
-                        break;
-                    }
-                    default:
-                        break;
-                }
-                ++meta_it;
+                ++it;
             }
         }
     }
 
-    void printImageInfo(const std::shared_ptr<assets::Image> &image)
+    void printImage2D(const std::shared_ptr<assets::Image2D> &image)
     {
-        printMetaHeader(image, assets::Type::Image);
-        std::shared_ptr<assets::ImageInfo> imageInfo;
-        bool isAtlas{false};
-        if (image->flags() & assets::ImageTypeFlagBits::atlas)
-        {
-            imageInfo = std::static_pointer_cast<assets::Atlas>(image->stream());
-            isAtlas = true;
-        }
-        else if (image->flags() & assets::ImageTypeFlagBits::image2D)
-            imageInfo = std::static_pointer_cast<assets::Image2D>(image->stream());
-        else
-            throw std::runtime_error("Unsupported texture type");
         logInfo("--------- Image Info ---------");
-        logInfo("Width: %d", imageInfo->width);
-        logInfo("Height: %d", imageInfo->height);
+        logInfo("Width: %d", image->width);
+        logInfo("Height: %d", image->height);
         std::stringstream ss;
-        for (size_t i = 0; i < imageInfo->channelCount; ++i)
+        for (size_t i = 0; i < image->channelCount; ++i)
         {
-            ss << imageInfo->channelNames[i];
-            if (i < imageInfo->channelCount - 1) ss << ", ";
+            ss << image->channelNames[i];
+            if (i < image->channelCount - 1) ss << ", ";
         }
-        logInfo("Channels: (%d) %s", imageInfo->channelCount, ss.str().c_str());
-        logInfo("Bytes per channel: %d bit", imageInfo->bytesPerChannel * 8);
-        logInfo("Image format: %s", vk::to_string(imageInfo->imageFormat).c_str());
-        logInfo("Size: %llu", imageInfo->imageSize());
-        scalable_free(imageInfo->pixels);
-        if (isAtlas)
-        {
-            auto atlas = std::static_pointer_cast<assets::Atlas>(image->stream());
-            logInfo("--------- Atlas Info ---------");
-            logInfo("Images size: %zu", atlas->packData().size());
-            for (const auto &rect : atlas->packData())
-            {
-                logInfo("------------------------------");
-                logInfo("Width: %d", rect.w);
-                logInfo("Height: %d", rect.h);
-                logInfo("X: %d", rect.x);
-                logInfo("Y: %d", rect.y);
-            }
-        }
-        logInfo("------------------------------");
+        logInfo("Channels: (%d) %s", image->channelCount, ss.str().c_str());
+        logInfo("Bytes per channel: %d bit", image->bytesPerChannel * 8);
+        logInfo("Image format: %s", vk::to_string(image->imageFormat).c_str());
+        logInfo("Size: %llu", image->imageSize());
+        scalable_free(image->pixels);
     }
 
-    void printMaterialNode(assets::MaterialNode &node, DArray<std::shared_ptr<assets::Asset>> &textures)
+    void printAtlas(const std::shared_ptr<assets::Atlas> &atlas)
+    {
+        logInfo("--------- Atlas Info ---------");
+        logInfo("Images size: %zu", atlas->packData.size());
+        for (const auto &rect : atlas->packData)
+        {
+            logInfo("------------------------------");
+            logInfo("Width: %d", rect.w);
+            logInfo("Height: %d", rect.h);
+            logInfo("X: %d", rect.x);
+            logInfo("Y: %d", rect.y);
+        }
+    }
+
+    void printMaterialNode(assets::MaterialNode &node, DArray<assets::Asset> &textures)
     {
         if (node.textured)
         {
@@ -99,7 +70,7 @@ namespace assettool
             auto tid = node.textureID;
             if (tid < 0 || tid >= textures.size()) throw std::runtime_error("Invalid texture ID");
             logInfo("    TextureID: %d", tid);
-            logInfo("    Texture type: %s", assets::toString(textures[tid]->info().type).c_str());
+            logInfo("    Texture type: %s", assets::toString(textures[tid].header.type).c_str());
         }
         else
         {
@@ -109,36 +80,38 @@ namespace assettool
         }
     }
 
-    void printMaterialInfo(const std::shared_ptr<assets::Material> &material)
+    void printMaterialInfo(const std::shared_ptr<assets::Asset> &asset)
     {
-        printMetaHeader(material, assets::Type::Material);
+        printMetaHeader(asset, assets::Type::Material);
         logInfo("--------- Material Info -------");
+        auto material = std::static_pointer_cast<assets::Material>(*asset->blocks.begin());
         auto &textures = material->textures;
         logInfo("Textures size: %zu", textures.size());
         logInfo("Albedo:");
-        printMaterialNode(material->info.albedo, textures);
+        printMaterialNode(material->albedo, textures);
         logInfo("------------------------------");
     }
 
-    void printSceneInfo(const std::shared_ptr<assets::Scene> &scene)
+    void printSceneInfo(const std::shared_ptr<assets::Asset> &asset)
     {
-        printMetaHeader(scene, assets::Type::Scene);
+        printMetaHeader(asset, assets::Type::Scene);
+        auto scene = std::static_pointer_cast<assets::Scene>(asset->blocks.front());
         logInfo("--------- Scene Info ---------");
         auto &objects = scene->objects;
         logInfo("Objects size: %zu", objects.size());
         for (auto &object : objects)
         {
-            auto &pos = object->transform.position;
-            auto &rot = object->transform.rotation;
-            auto &scale = object->transform.scale;
+            auto &pos = object.transform.position;
+            auto &rot = object.transform.rotation;
+            auto &scale = object.transform.scale;
             logInfo("------------------------------");
             logInfo("Position: %f %f %f", pos.x, pos.y, pos.z);
             logInfo("Rotation: %f %f %f", rot.x, rot.y, rot.z);
             logInfo("Scale: %f %f %f", scale.x, scale.y, scale.z);
-            if (object->meta.begin() == object->meta.end())
+            if (object.meta.begin() == object.meta.end())
                 logInfo("Meta: no");
             else
-                for (auto &block : object->meta) logInfo("Meta block signature: 0x%08x", block->signature());
+                for (auto &block : object.meta) logInfo("Meta block signature: 0x%08x", block->signature());
             logInfo("------------------------------");
         }
         logInfo("--------- Textures Info -----");
@@ -146,7 +119,7 @@ namespace assettool
         int count = 0;
         for (auto &texture : scene->textures)
         {
-            switch (texture->info().type)
+            switch (texture.header.type)
             {
                 case assets::Type::Invalid:
                     logWarn("#%d | Type: Invalid", count);
@@ -158,7 +131,7 @@ namespace assettool
                     logInfo("#%d | Type: Image", count);
                     break;
                 default:
-                    logError("#%d | Incompatible type: %s", count, assets::toString(texture->info().type).c_str());
+                    logError("#%d | Incompatible type: %s", count, assets::toString(texture.header.type).c_str());
                     break;
             }
             ++count;
@@ -168,8 +141,7 @@ namespace assettool
         count = 0;
         for (auto &asset : scene->materials)
         {
-            auto &info = asset->info();
-            switch (info.type)
+            switch (asset.header.type)
             {
                 case assets::Type::Invalid:
                     logWarn("#%d | Type: Invalid", count++);
@@ -180,52 +152,50 @@ namespace assettool
                 case assets::Type::Material:
                 {
                     logInfo("#%d | Type: Material", count++);
-                    auto material = std::static_pointer_cast<assets::Material>(asset);
-                    auto it = std::find_if(material->meta.begin(), material->meta.end(), [](auto &block) {
-                        return block->signature() == assets::meta::sign_block_material;
+                    auto it = std::find_if(asset.blocks.begin(), asset.blocks.end(), [](auto &block) {
+                        return block->signature() == assets::sign_block::material_info;
                     });
-                    if (it == material->meta.end())
+                    if (it == asset.blocks.end())
                         logInfo("   | Name: null");
                     else
                     {
-                        auto matMeta = std::static_pointer_cast<assets::meta::MaterialBlock>(*it);
+                        auto matMeta = std::static_pointer_cast<assets::MaterialInfo>(*it);
                         logInfo("   | Name: %s", matMeta->name.c_str());
                     }
                     break;
                 }
                 default:
-                    logError("#%d | Incompatible type: %s", count++, assets::toString(info.type).c_str());
+                    logError("#%d | Incompatible type: %s", count++, assets::toString(asset.header.type).c_str());
                     break;
             }
         }
         logInfo("------------------------------");
     }
 
-    void printTargetInfo(const std::shared_ptr<assets::Target> &target)
+    void printTargetInfo(const std::shared_ptr<assets::Asset> &asset)
     {
-        printMetaHeader(target, assets::Type::Target);
+        printMetaHeader(asset, assets::Type::Target);
         logInfo("--------- Target Info ---------");
-        assets::TargetAddr addr = target->addr();
-        switch (addr.proto)
+        auto target = std::static_pointer_cast<assets::Target>(asset->blocks.front());
+        switch (target->addr.proto)
         {
-            case assets::TargetProto::File:
+            case assets::Target::Addr::Proto::File:
                 logInfo("Proto: File");
                 break;
-            case assets::TargetProto::Network:
+            case assets::Target::Addr::Proto::Network:
                 logInfo("Proto: Network");
                 break;
             default:
                 logWarn("Proto: Unknown");
                 break;
         }
-        logInfo("URL: %s", addr.url.c_str());
-        assets::TargetMetaData meta = target->targetMeta();
-        logInfo("Type: %s", assets::toString(meta.type).c_str());
-        logInfo("Checksum: %d", meta.checksum);
+        logInfo("URL: %s", target->addr.url.c_str());
+        logInfo("Type: %s", assets::toString(target->header.type).c_str());
+        logInfo("Checksum: %d", target->checksum);
         logInfo("------------------------------");
     }
 
-    void printFileHierarchy(const assets::FileNode &node, int depth = 0, const std::string &prefix = "")
+    void printFileHierarchy(const assets::Library::Node &node, int depth = 0, const std::string &prefix = "")
     {
         if (depth == 0)
             logInfo("| %s", node.name.c_str());
@@ -241,11 +211,12 @@ namespace assettool
                 printFileHierarchy(node.children[i], depth + 1, newPrefix);
     }
 
-    void printLibraryInfo(const std::shared_ptr<assets::Library> &library)
+    void printLibraryInfo(const std::shared_ptr<assets::Asset> &asset)
     {
-        printMetaHeader(library, assets::Type::Library);
+        printMetaHeader(asset, assets::Type::Library);
         logInfo("--------- Library Info -------");
-        printFileHierarchy(library->fileTree());
+        auto library = std::static_pointer_cast<assets::Library>(asset->blocks.front());
+        printFileHierarchy(library->fileTree);
         logInfo("------------------------------");
     }
 } // namespace assettool

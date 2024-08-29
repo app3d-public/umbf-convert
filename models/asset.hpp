@@ -2,14 +2,11 @@
 #define ASSETTOOL_MODELS_ASSET
 
 #include <assets/asset.hpp>
-#include <assets/image.hpp>
-#include <assets/library.hpp>
-#include <assets/material.hpp>
 #include "jsonbase.hpp"
 
 namespace models
 {
-    class InfoHeader : public JsonBase, public assets::InfoHeader
+    class InfoHeader : public JsonBase, public assets::Asset::Header
     {
     public:
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
@@ -31,8 +28,8 @@ namespace models
     {
     public:
         explicit Image(const InfoHeader &assetInfo, const std::shared_ptr<JsonBase> &serializer = nullptr,
-                       assets::ImageTypeFlags flags = assets::ImageTypeFlagBits::undefined)
-            : AssetBase(assetInfo), _type(flags), _serializer(serializer)
+                       u32 signature = 0)
+            : AssetBase(assetInfo), _signature(signature), _serializer(serializer)
         {
         }
 
@@ -40,10 +37,10 @@ namespace models
 
         std::shared_ptr<JsonBase> &serializer() { return _serializer; }
 
-        assets::ImageTypeFlags type() const { return _type; }
+        u32 signature() const { return _signature; }
 
     private:
-        assets::ImageTypeFlags _type;
+        u32 _signature;
         std::shared_ptr<JsonBase> _serializer;
     };
 
@@ -77,6 +74,7 @@ namespace models
         vk::Format imageFormat() const { return _imageFormat; }
 
         u8 bytesPerChannel() const { return _bytesPerChannel; }
+
     private:
         u64 _width;
         u64 _height;
@@ -166,13 +164,15 @@ namespace models
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
-        assets::TargetAddr addr() const { return _addr; }
+        assets::Target::Addr addr() const { return _addr; }
 
-        assets::TargetMetaData metaData() const { return _metaData; }
+        assets::Asset::Header header() const { return _header; }
 
+        u32 checksum() const { return _checksum; }
     private:
-        assets::TargetAddr _addr;
-        assets::TargetMetaData _metaData;
+        assets::Target::Addr _addr;
+        assets::Asset::Header _header;
+        u32 _checksum;
     };
 
     struct FileNode

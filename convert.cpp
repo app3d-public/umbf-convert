@@ -3,22 +3,23 @@
 #include <core/log.hpp>
 #include <ecl/scene/obj/import.hpp>
 #include <memory>
+#include "models/asset.hpp"
 
 namespace assettool
 {
     ImageResource::ImageResource(const std::filesystem::path &path)
         : _importer(ecl::image::getImporterByPath(path)), _valid(false)
     {
-        DArray<assets::ImageInfo> images;
-        if (_importer->load(path, images) == io::file::ReadState::Success)
+        DArray<assets::Image2D> images;
+        if (_importer && _importer->load(path, images) == io::file::ReadState::Success)
         {
             _image = images.front();
             _valid = true;
         }
     }
 
-    std::shared_ptr<assets::Image> modelToImage2D(const std::shared_ptr<models::Image2D> &src,
-                                                  DArray<ImageResource> &resources, const models::InfoHeader &info)
+    std::shared_ptr<assets::Image2D> modelToImage2D(const std::shared_ptr<models::Image2D> &src,
+                                                    DArray<ImageResource> &resources)
     {
         logInfo("Loading image: %s", src->path().string().c_str());
         ImageResource imageResource(src->path());
@@ -28,77 +29,74 @@ namespace assettool
             return nullptr;
         }
         logInfo("Converting image to asset");
-        auto imageAsset = std::make_shared<assets::Image2D>(imageResource.image());
-        auto asset = std::make_shared<assets::Image>(info, assets::ImageTypeFlagBits::image2D, imageAsset);
+        auto image = std::make_shared<assets::Image2D>(imageResource.image());
         resources.push_back(std::move(imageResource));
-        return asset;
+        return image;
     }
 
-    std::shared_ptr<assets::Image> modelToImageAtlas(const std::shared_ptr<models::Atlas> &src,
-                                                     DArray<ImageResource> &resources, const models::InfoHeader &info)
+    std::shared_ptr<meta::Block> modelToImageAtlas(const std::shared_ptr<models::Atlas> &src,
+                                                   DArray<ImageResource> &resources)
     {
-        assets::ImageInfo imageInfo{};
-        imageInfo.width = src->width();
-        imageInfo.height = src->height();
-        imageInfo.bytesPerChannel = src->bytesPerChannel();
-        imageInfo.channelCount = 4;
-        imageInfo.channelNames = {"Red", "Green", "Blue", "Alpha"};
-        imageInfo.imageFormat = src->imageFormat();
-        DArray<std::shared_ptr<assets::Image2D>> textures;
+        auto atlas = std::make_shared<assets::Atlas>();
+        atlas->width = src->width();
+        atlas->height = src->height();
+        atlas->bytesPerChannel = src->bytesPerChannel();
+        atlas->channelCount = 4;
+        atlas->channelNames = {"Red", "Green", "Blue", "Alpha"};
+        atlas->imageFormat = src->imageFormat();
         std::vector<assets::Atlas::Rect> rects;
-        assert(imageInfo.pixels == nullptr);
         for (const auto &image : src->images())
         {
-            models::InfoHeader info{};
-            info.type = assets::Type::Image;
-            info.compressed = false;
-            auto texture2D = modelToImage2D(image, resources, info);
-            if (texture2D)
+            auto texture2D = modelToImage2D(image, resources);
+            if (!texture2D) continue;
+            if (texture2D->channelCount != atlas->channelCount ||
+                texture2D->bytesPerChannel != atlas->bytesPerChannel || texture2D->imageFormat != atlas->imageFormat)
             {
-                auto texture = std::static_pointer_cast<assets::Image2D>(texture2D->stream());
-                if (texture->channelCount != imageInfo.channelCount ||
-                    texture->bytesPerChannel != imageInfo.bytesPerChannel ||
-                    texture->imageFormat != imageInfo.imageFormat)
-                {
-                    logInfo("Converting image to the atlas format: %s", image->path().string().c_str());
-                    void *converted =
-                        assets::utils::convertImage(*texture, imageInfo.imageFormat, imageInfo.channelCount);
-                    texture->pixels = converted;
-                    texture->bytesPerChannel = imageInfo.bytesPerChannel;
-                    texture->channelCount = imageInfo.channelCount;
-                    texture->imageFormat = imageInfo.imageFormat;
-                }
-                textures.push_back(texture);
-                rects.emplace_back(rectpack2D::rect_xywh(0, 0, texture->width, texture->height));
+                logInfo("Converting image to the atlas format: %s", image->path().string().c_str());
+                void *converted = assets::utils::convertImage(*texture2D, atlas->imageFormat, atlas->channelCount);
+                texture2D->pixels = converted;
+                texture2D->bytesPerChannel = atlas->bytesPerChannel;
+                texture2D->channelCount = atlas->channelCount;
+                texture2D->imageFormat = atlas->imageFormat;
             }
+            atlas->images.push_back(texture2D);
+            rects.emplace_back(rectpack2D::rect_xywh(0, 0, texture2D->width, texture2D->height));
         }
-        if (!assets::packAtlas(std::max(imageInfo.width, imageInfo.height), src->precision(),
+        if (!assets::packAtlas(std::max(atlas->width, atlas->height), src->precision(),
                                rectpack2D::flipping_option::DISABLED, rects))
         {
             logError("Failed to pack atlas");
             return nullptr;
         }
-        auto atlas = std::make_shared<assets::Atlas>(imageInfo, src->precision(), textures, rects);
-        auto asset = std::make_shared<assets::Image>(
-            info, assets::ImageTypeFlagBits::image2D | assets::ImageTypeFlagBits::atlas, atlas);
-        return asset;
+        atlas->discardStep = src->precision();
+        atlas->packData = rects;
+        return atlas;
     }
 
-    std::shared_ptr<assets::Image> modelToImage(const std::shared_ptr<models::Image> &src,
-                                                DArray<ImageResource> &resources)
+    std::shared_ptr<meta::Block> modelToImage(const std::shared_ptr<models::Image> &src,
+                                              DArray<ImageResource> &resources)
     {
-        if (src->type() & assets::ImageTypeFlagBits::atlas)
+        if (src->signature() == assets::sign_block::image_atlas)
         {
             auto serializer = std::static_pointer_cast<models::Atlas>(src->serializer());
-            return modelToImageAtlas(serializer, resources, src->assetInfo());
+            return modelToImageAtlas(serializer, resources);
         }
-        else if (src->type() & assets::ImageTypeFlagBits::image2D)
+        else if (src->signature() == assets::sign_block::image2D)
         {
             auto serializer = std::static_pointer_cast<models::Image2D>(src->serializer());
-            return modelToImage2D(serializer, resources, src->assetInfo());
+            return modelToImage2D(serializer, resources);
         }
         else
             return nullptr;
+    }
+
+    std::shared_ptr<assets::Target> modelToTarget(models::Target &src, DArray<ImageResource> &images)
+    {
+        auto target = std::make_shared<assets::Target>();
+        target->addr = src.addr();
+        target->header = src.header();
+        target->checksum = src.checksum();
+        return target;
     }
 
     std::shared_ptr<assets::Asset> modelToImageAny(std::shared_ptr<models::AssetBase> &src,
@@ -109,38 +107,38 @@ namespace assettool
             logError("Source asset cannot be a null pointer");
             return nullptr;
         }
-        std::shared_ptr<assets::Asset> asset;
+        std::shared_ptr<meta::Block> block;
         switch (src->assetInfo().type)
         {
             case assets::Type::Image:
             {
-                auto model = std::static_pointer_cast<models::Image>(src);
-                asset = modelToImage(model, resources);
+                block = modelToImage(std::static_pointer_cast<models::Image>(src), resources);
                 break;
             }
             case assets::Type::Target:
             {
-                auto model = std::static_pointer_cast<models::Target>(src);
-                asset = std::make_shared<assets::Target>(src->assetInfo(), model->addr(), model->metaData());
+                block = modelToTarget(*std::static_pointer_cast<models::Target>(src), resources);
                 break;
             }
             default:
                 logError("Invalid asset type");
                 return nullptr;
         }
-        if (!asset) logError("Failed to convert image from model");
+        auto asset = std::make_shared<assets::Asset>();
+        asset->header = src->assetInfo();
+        if (!block) return nullptr;
+        asset->blocks.push_back(block);
         return asset;
     }
 
     std::shared_ptr<assets::Material> modelToMaterial(const std::shared_ptr<models::Material> &src,
                                                       DArray<ImageResource> &resources)
     {
-        DArray<std::shared_ptr<assets::Asset>> textures;
+        auto material = std::make_shared<assets::Material>();
         for (auto &texture : src->textures())
-            if (auto asset = modelToImageAny(texture, resources)) textures.push_back(asset);
-        assets::MaterialInfo material;
-        material.albedo = src->albedo();
-        return std::make_shared<assets::Material>(src->assetInfo(), textures, material);
+            if (auto asset = modelToImageAny(texture, resources)) material->textures.push_back(*asset);
+        material->albedo = src->albedo();
+        return material;
     }
 
     std::shared_ptr<assets::Asset> modelToMaterialAny(std::shared_ptr<models::AssetBase> &src,
@@ -151,38 +149,46 @@ namespace assettool
             logError("Source asset cannot be a null pointer");
             return nullptr;
         }
-        std::shared_ptr<assets::Asset> asset;
+        auto asset = std::make_shared<assets::Asset>();
         switch (src->assetInfo().type)
         {
             case assets::Type::Material:
             {
                 auto model = std::static_pointer_cast<models::Material>(src);
-                asset = modelToMaterial(model, resources);
-                if (asset && name.length() > 0)
+                asset->header = model->assetInfo();
+                if (auto material = modelToMaterial(model, resources))
                 {
-                    auto meta = std::make_shared<assets::meta::MaterialBlock>();
-                    meta->name = name;
-                    asset->meta.push_front(meta);
+                    asset->blocks.push_back(material);
+                    if (name.length() > 0)
+                    {
+                        auto matInfo = std::make_shared<assets::MaterialInfo>();
+                        matInfo->name = name;
+                        asset->blocks.push_back(matInfo);
+                    }
                 }
+                else
+                    return nullptr;
                 break;
             }
             case assets::Type::Target:
             {
                 auto model = std::static_pointer_cast<models::Target>(src);
-                asset = std::make_shared<assets::Target>(src->assetInfo(), model->addr(), model->metaData());
+                auto target = modelToTarget(*model, resources);
+                if (!target) return nullptr;
+                asset->blocks.push_back(target);
+                asset->header = model->assetInfo();
                 break;
             }
             default:
                 logError("Invalid asset type");
                 return nullptr;
         }
-        if (!asset) logError("Failed to convert material from model");
         return asset;
     }
 
     std::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, DArray<ImageResource> &images)
     {
-        DArray<std::shared_ptr<assets::Object>> objects;
+        auto scene = std::make_shared<assets::Scene>();
         for (int i = 0; i < sceneInfo.meshes().size(); i++)
         {
             auto &mesh = sceneInfo.meshes()[i];
@@ -196,8 +202,7 @@ namespace assettool
                         logError("Failed to load obj: %ls", mesh->path().c_str());
                         return nullptr;
                     }
-                    objects.emplace_back(std::make_shared<assets::Object>());
-                    objects.back()->meta = importer.objects().back()->meta;
+                    for (auto &object : importer.objects()) scene->objects.push_back(*object);
                     break;
                 }
                 default:
@@ -207,30 +212,17 @@ namespace assettool
         }
 
         DArray<ImageResource> imageResources{};
-        DArray<std::shared_ptr<assets::Asset>> textures;
         for (auto &texture : sceneInfo.textures())
-            if (auto asset = modelToImageAny(texture, imageResources)) textures.push_back(asset);
+            if (auto asset = modelToImageAny(texture, imageResources)) scene->textures.push_back(*asset);
 
-        DArray<std::shared_ptr<assets::Asset>> materials;
         for (auto &material : sceneInfo.materials())
             if (auto asset = modelToMaterialAny(material.asset, imageResources, material.name))
-                materials.push_back(asset);
-        auto asset = std::make_shared<assets::Scene>(sceneInfo.assetInfo(), objects, textures, materials);
-        if (!asset) return nullptr;
+                scene->materials.push_back(*asset);
 
-        // Meta
-        std::string info = "Genereated by App3D Asset Tool";
-        std::string author = "App3D Dev Team";
-        u32 version = vk::makeApiVersion(0, 1, 0, 0);
-        auto meta = std::make_shared<assets::meta::SceneInfo>();
-        meta->info = info;
-        meta->author = author;
-        meta->version = version;
-        asset->meta.push_front(meta);
-        return asset;
+        return scene;
     }
 
-    void prepareNodeByModel(const models::FileNode &src, assets::FileNode &dst, DArray<ImageResource> &resources)
+    void prepareNodeByModel(const models::FileNode &src, assets::Library::Node &dst, DArray<ImageResource> &resources)
     {
         if (src.children.empty())
         {
@@ -241,43 +233,36 @@ namespace assettool
             }
             else
             {
+                std::shared_ptr<meta::Block> block;
                 switch (src.asset->assetInfo().type)
                 {
                     case assets::Type::Image:
                     {
-                        auto model = std::static_pointer_cast<models::Image>(src.asset);
-                        dst.name = src.name;
-                        dst.asset = modelToImage(model, resources);
-                        if (!dst.asset) throw std::runtime_error("Failed to convert model to image");
+                        block = modelToImage(std::static_pointer_cast<models::Image>(src.asset), resources);
                         break;
                     }
                     case assets::Type::Material:
                     {
-                        auto model = std::static_pointer_cast<models::Material>(src.asset);
-                        dst.name = src.name;
-                        dst.asset = modelToMaterial(model, resources);
-                        if (!dst.asset) throw std::runtime_error("Failed to convert model to material");
+                        block = modelToMaterial(std::static_pointer_cast<models::Material>(src.asset), resources);
                         break;
                     }
                     case assets::Type::Scene:
                     {
-                        auto model = std::static_pointer_cast<models::Scene>(src.asset);
-                        dst.name = src.name;
-                        dst.asset = modelToScene(*model, resources);
-                        if (!dst.asset) throw std::runtime_error("Failed to convert model to scene");
+                        block = modelToScene(*std::static_pointer_cast<models::Scene>(src.asset), resources);
                         break;
                     }
                     case assets::Type::Target:
                     {
-                        auto model = std::static_pointer_cast<models::Target>(src.asset);
-                        dst.name = src.name;
-                        dst.asset =
-                            std::make_shared<assets::Target>(model->assetInfo(), model->addr(), model->metaData());
+                        block = modelToTarget(*std::static_pointer_cast<models::Target>(src.asset), resources);
                         break;
                     }
                     default:
                         break;
                 }
+                if (!block) throw std::runtime_error("Failed to convert asset");
+                dst.name = src.name;
+                dst.asset.header = src.asset->assetInfo();
+                dst.asset.blocks.push_back(block);
             }
         }
         else
@@ -286,7 +271,7 @@ namespace assettool
             dst.isFolder = true;
             for (const auto &child : src.children)
             {
-                assets::FileNode node;
+                assets::Library::Node node;
                 prepareNodeByModel(child, node, resources);
                 dst.children.push_back(node);
             }

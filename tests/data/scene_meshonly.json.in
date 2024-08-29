@@ -3,8 +3,7 @@
     "meshes": [
         {
             "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj",
-            "format": "obj",
-            "matID": 0
+            "format": "obj"
         }
     ],
     "textures": [],

@@ -105,15 +105,20 @@ int main(int argc, char **argv)
     logging::mng->defaultLogger(logger);
 
     // Assets meta
-    assets::meta::addStream(assets::meta::sign_block_external, new assets::meta::ExternalStream());
-    assets::meta::addStream(assets::meta::sign_block_scene, new assets::meta::SceneInfoStream());
-    assets::meta::addStream(assets::meta::sign_block_mesh, new assets::meta::mesh::MeshStream());
-    assets::meta::addStream(assets::meta::sign_block_material, new assets::meta::MaterialStream());
+    meta::initStreams({{meta::sign_block_external, new meta::ExternalStream()},
+                       {assets::sign_block::image2D, new assets::Image2DStream()},
+                       {assets::sign_block::image_atlas, new assets::AtlasStream()},
+                       {assets::sign_block::scene, new assets::SceneStream()},
+                       {assets::sign_block::mesh, new assets::mesh::MeshStream()},
+                       {assets::sign_block::material, new assets::MaterialStream()},
+                       {assets::sign_block::material_info, new assets::MaterialInfoStream()},
+                       {assets::sign_block::target, new assets::TargetStream()},
+                       {assets::sign_block::library, new assets::LibraryStream()}});
 
     assettool::App app(args.input, args.output, args.mode, args.check);
     app.run();
 
-    assets::meta::clearStreams();
+    meta::clearStreams();
     TaskManager::global().await(true);
     logging::mng->await();
     logging::LogManager::destroy();

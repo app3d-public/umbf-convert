@@ -1,11 +1,9 @@
 #include "jsonbase.hpp"
-#include <assets/image.hpp>
-#include <assets/library.hpp>
+#include <assets/asset.hpp>
 #include <core/std/basic_types.hpp>
 #include <fstream>
 #include <glm/glm.hpp>
 #include <sstream>
-#include <vulkan/vulkan.hpp>
 
 namespace models
 {
@@ -187,19 +185,20 @@ namespace models
     }
 
     template <>
-    assets::TargetProto getField<assets::TargetProto>(const rapidjson::Value &obj, const char *key, bool required)
+    assets::Target::Addr::Proto getField<assets::Target::Addr::Proto>(const rapidjson::Value &obj, const char *key,
+                                                                      bool required)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
             if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
             std::string str = val.GetString();
-            if (str == "file") return assets::TargetProto::File;
-            if (str == "network") return assets::TargetProto::Network;
+            if (str == "file") return assets::Target::Addr::Proto::File;
+            if (str == "network") return assets::Target::Addr::Proto::Network;
             throw std::runtime_error("Field " + std::string(key) + " is not a valid asset type");
         }
         if (required) throw std::runtime_error("Missing field " + std::string(key));
-        return assets::TargetProto::Unknown;
+        return assets::Target::Addr::Proto::Unknown;
     }
 
     vk::Format parseVkFormat(std::string str)
@@ -239,18 +238,17 @@ namespace models
         return vk::Format::eUndefined;
     }
 
-    template <>
-    assets::ImageTypeFlags getField<assets::ImageTypeFlags>(const rapidjson::Value &obj, const char *key, bool required)
+    u32 getImageType(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
             if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
-            if (val == "2D") return assets::ImageTypeFlagBits::image2D;
-            if (val == "atlas") return assets::ImageTypeFlagBits::atlas | assets::ImageTypeFlagBits::image2D;
+            if (val == "2D") return assets::sign_block::image2D;
+            if (val == "atlas") return assets::sign_block::image_atlas;
             throw std::runtime_error("Field " + std::string(key) + " is not a valid texture type");
         }
         if (required) throw std::runtime_error("Missing field " + std::string(key));
-        return assets::ImageTypeFlagBits::undefined;
+        return 0;
     }
 } // namespace models

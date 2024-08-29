@@ -1,6 +1,5 @@
 #pragma once
 
-#include <assets/scene.hpp>
 #include <ecl/image/import.hpp>
 #include "models/asset.hpp"
 
@@ -22,22 +21,22 @@ namespace assettool
 
         bool valid() const { return _valid; }
 
-        assets::ImageInfo &image() { return _image; }
+        assets::Image2D &image() { return _image; }
 
     private:
         ecl::image::ILoader *_importer;
-        assets::ImageInfo _image;
+        assets::Image2D _image;
         bool _valid{false};
     };
 
-    std::shared_ptr<assets::Image> modelToImage2D(const std::shared_ptr<models::Image2D> &src,
-                                                  DArray<ImageResource> &resources, const models::InfoHeader &info);
+    std::shared_ptr<assets::Image2D> modelToImage2D(const std::shared_ptr<models::Image2D> &src,
+                                                    DArray<ImageResource> &resources);
 
-    std::shared_ptr<assets::Image> modelToImageAtlas(const std::shared_ptr<models::Atlas> &src,
-                                                     DArray<ImageResource> &resources, const models::InfoHeader &info);
+    std::shared_ptr<meta::Block> modelToImageAtlas(const std::shared_ptr<models::Atlas> &src,
+                                                   DArray<ImageResource> &resources);
 
-    std::shared_ptr<assets::Image> modelToImage(const std::shared_ptr<models::Image> &src,
-                                                DArray<ImageResource> &resources);
+    std::shared_ptr<meta::Block> modelToImage(const std::shared_ptr<models::Image> &src,
+                                              DArray<ImageResource> &resources);
 
     std::shared_ptr<assets::Asset> modelToImageAny(std::shared_ptr<models::AssetBase> &src,
                                                    DArray<ImageResource> &resources);
@@ -50,5 +49,7 @@ namespace assettool
 
     std::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, DArray<ImageResource> &images);
 
-    void prepareNodeByModel(const models::FileNode &src, assets::FileNode &dst, DArray<ImageResource> &resources);
+    std::shared_ptr<assets::Target> modelToTarget(models::Target &targetInfo, DArray<ImageResource> &images);
+
+    void prepareNodeByModel(const models::FileNode &src, assets::Library::Node &dst, DArray<ImageResource> &resources);
 } // namespace assettool

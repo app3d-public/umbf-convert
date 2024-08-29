@@ -16,8 +16,7 @@ namespace models
 
         bool deserializeString(const std::string &s, rapidjson::Document &object)
         {
-            if (!initDocument(s, object))
-                return false;
+            if (!initDocument(s, object)) return false;
             return deserializeObject(object);
         }
 
@@ -35,6 +34,8 @@ namespace models
 
     template <typename T>
     T getField(const rapidjson::Value &obj, const char *key, bool required = true);
+
+    uint32_t getImageType(const rapidjson::Value &obj, const char *key, bool required);
 } // namespace models
 
 #endif
