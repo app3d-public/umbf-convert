@@ -1,5 +1,6 @@
 #include "convert.hpp"
 #include <assets/utils.hpp>
+#include <core/event.hpp>
 #include <core/log.hpp>
 #include <ecl/scene/obj/import.hpp>
 #include <memory>
@@ -192,12 +193,13 @@ namespace assettool
         for (int i = 0; i < sceneInfo.meshes().size(); i++)
         {
             auto &mesh = sceneInfo.meshes()[i];
+            events::Manager e;
             switch (mesh->format())
             {
                 case models::Mesh::Format::Obj:
                 {
                     ecl::scene::obj::Importer importer(mesh->path());
-                    if (importer.load() != io::file::ReadState::Success)
+                    if (importer.load(e) != io::file::ReadState::Success)
                     {
                         logError("Failed to load obj: %ls", mesh->path().c_str());
                         return nullptr;
