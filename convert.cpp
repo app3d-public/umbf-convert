@@ -204,7 +204,7 @@ namespace assettool
                         logError("Failed to load obj: %ls", mesh->path().c_str());
                         return nullptr;
                     }
-                    for (auto &object : importer.objects()) scene->objects.push_back(*object);
+                    for (auto &object : importer.objects()) scene->objects.push_back(object);
                     break;
                 }
                 default:
