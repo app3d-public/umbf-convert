@@ -30,26 +30,28 @@ namespace assettool
     };
 
     std::shared_ptr<assets::Image2D> modelToImage2D(const std::shared_ptr<models::Image2D> &src,
-                                                    DArray<ImageResource> &resources);
+                                                    astl::vector<ImageResource> &resources);
 
     std::shared_ptr<meta::Block> modelToImageAtlas(const std::shared_ptr<models::Atlas> &src,
-                                                   DArray<ImageResource> &resources);
+                                                   astl::vector<ImageResource> &resources);
 
     std::shared_ptr<meta::Block> modelToImage(const std::shared_ptr<models::Image> &src,
-                                              DArray<ImageResource> &resources);
+                                              astl::vector<ImageResource> &resources);
 
     std::shared_ptr<assets::Asset> modelToImageAny(std::shared_ptr<models::AssetBase> &src,
-                                                   DArray<ImageResource> &resources);
+                                                   astl::vector<ImageResource> &resources);
 
     std::shared_ptr<assets::Material> modelToMaterial(const std::shared_ptr<models::Material> &src,
-                                                      DArray<ImageResource> &resources);
+                                                      astl::vector<ImageResource> &resources);
 
     std::shared_ptr<assets::Asset> modelToMaterialAny(std::shared_ptr<models::AssetBase> &src,
-                                                      DArray<ImageResource> &resources, const std::string &name = "");
+                                                      astl::vector<ImageResource> &resources,
+                                                      const std::string &name = "");
 
-    std::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, DArray<ImageResource> &images);
+    std::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, astl::vector<ImageResource> &images);
 
-    std::shared_ptr<assets::Target> modelToTarget(models::Target &targetInfo, DArray<ImageResource> &images);
+    std::shared_ptr<assets::Target> modelToTarget(models::Target &targetInfo, astl::vector<ImageResource> &images);
 
-    void prepareNodeByModel(const models::FileNode &src, assets::Library::Node &dst, DArray<ImageResource> &resources);
+    void prepareNodeByModel(const models::FileNode &src, assets::Library::Node &dst,
+                            astl::vector<ImageResource> &resources);
 } // namespace assettool

@@ -11,7 +11,7 @@ namespace assettool
     ImageResource::ImageResource(const std::filesystem::path &path)
         : _importer(ecl::image::getImporterByPath(path)), _valid(false)
     {
-        DArray<assets::Image2D> images;
+        astl::vector<assets::Image2D> images;
         if (_importer && _importer->load(path, images) == io::file::ReadState::Success)
         {
             _image = images.front();
@@ -20,7 +20,7 @@ namespace assettool
     }
 
     std::shared_ptr<assets::Image2D> modelToImage2D(const std::shared_ptr<models::Image2D> &src,
-                                                    DArray<ImageResource> &resources)
+                                                    astl::vector<ImageResource> &resources)
     {
         logInfo("Loading image: %s", src->path().string().c_str());
         ImageResource imageResource(src->path());
@@ -36,7 +36,7 @@ namespace assettool
     }
 
     std::shared_ptr<meta::Block> modelToImageAtlas(const std::shared_ptr<models::Atlas> &src,
-                                                   DArray<ImageResource> &resources)
+                                                   astl::vector<ImageResource> &resources)
     {
         auto atlas = std::make_shared<assets::Atlas>();
         atlas->width = src->width();
@@ -75,7 +75,7 @@ namespace assettool
     }
 
     std::shared_ptr<meta::Block> modelToImage(const std::shared_ptr<models::Image> &src,
-                                              DArray<ImageResource> &resources)
+                                              astl::vector<ImageResource> &resources)
     {
         if (src->signature() == assets::sign_block::image_atlas)
         {
@@ -91,7 +91,7 @@ namespace assettool
             return nullptr;
     }
 
-    std::shared_ptr<assets::Target> modelToTarget(models::Target &src, DArray<ImageResource> &images)
+    std::shared_ptr<assets::Target> modelToTarget(models::Target &src, astl::vector<ImageResource> &images)
     {
         auto target = std::make_shared<assets::Target>();
         target->addr = src.addr();
@@ -101,7 +101,7 @@ namespace assettool
     }
 
     std::shared_ptr<assets::Asset> modelToImageAny(std::shared_ptr<models::AssetBase> &src,
-                                                   DArray<ImageResource> &resources)
+                                                   astl::vector<ImageResource> &resources)
     {
         if (!src)
         {
@@ -133,7 +133,7 @@ namespace assettool
     }
 
     std::shared_ptr<assets::Material> modelToMaterial(const std::shared_ptr<models::Material> &src,
-                                                      DArray<ImageResource> &resources)
+                                                      astl::vector<ImageResource> &resources)
     {
         auto material = std::make_shared<assets::Material>();
         for (auto &texture : src->textures())
@@ -143,7 +143,7 @@ namespace assettool
     }
 
     std::shared_ptr<assets::Asset> modelToMaterialAny(std::shared_ptr<models::AssetBase> &src,
-                                                      DArray<ImageResource> &resources, const std::string &name)
+                                                      astl::vector<ImageResource> &resources, const std::string &name)
     {
         if (!src)
         {
@@ -187,7 +187,7 @@ namespace assettool
         return asset;
     }
 
-    std::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, DArray<ImageResource> &images)
+    std::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, astl::vector<ImageResource> &images)
     {
         auto scene = std::make_shared<assets::Scene>();
         for (int i = 0; i < sceneInfo.meshes().size(); i++)
@@ -213,7 +213,7 @@ namespace assettool
             }
         }
 
-        DArray<ImageResource> imageResources{};
+        astl::vector<ImageResource> imageResources{};
         for (auto &texture : sceneInfo.textures())
             if (auto asset = modelToImageAny(texture, imageResources)) scene->textures.push_back(*asset);
 
@@ -224,7 +224,8 @@ namespace assettool
         return scene;
     }
 
-    void prepareNodeByModel(const models::FileNode &src, assets::Library::Node &dst, DArray<ImageResource> &resources)
+    void prepareNodeByModel(const models::FileNode &src, assets::Library::Node &dst,
+                            astl::vector<ImageResource> &resources)
     {
         if (src.children.empty())
         {

@@ -31,7 +31,7 @@ namespace assettool
         std::filesystem::path _output;
         SaveMode _mode;
         bool _check;
-        DArray<ImageResource> _images;
+        astl::vector<ImageResource> _images;
 
         static bool checkAsset(const std::filesystem::path &path);
         std::shared_ptr<assets::Asset> getAssetByImage();

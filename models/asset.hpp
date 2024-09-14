@@ -63,7 +63,7 @@ namespace models
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
-        DArray<std::shared_ptr<Image2D>> &images() { return _images; }
+        astl::vector<std::shared_ptr<Image2D>> &images() { return _images; }
 
         u64 width() const { return _width; }
 
@@ -81,7 +81,7 @@ namespace models
         u8 _bytesPerChannel;
         vk::Format _imageFormat;
         int _precision;
-        DArray<std::shared_ptr<Image2D>> _images;
+        astl::vector<std::shared_ptr<Image2D>> _images;
     };
 
     class Material final : public JsonBase, public AssetBase
@@ -89,14 +89,14 @@ namespace models
     public:
         explicit Material(const InfoHeader &assetInfo) : AssetBase(assetInfo) {}
 
-        const DArray<std::shared_ptr<AssetBase>> &textures() const { return _textures; }
+        const astl::vector<std::shared_ptr<AssetBase>> &textures() const { return _textures; }
 
         assets::MaterialNode albedo() { return _albedoNode; }
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
     private:
-        DArray<std::shared_ptr<AssetBase>> _textures;
+        astl::vector<std::shared_ptr<AssetBase>> _textures;
         assets::MaterialNode _albedoNode;
 
         static void parseNodeInfo(const rapidjson::Value &nodeInfo, assets::MaterialNode &node);
@@ -139,18 +139,18 @@ namespace models
 
         explicit Scene(const InfoHeader &assetInfo) : AssetBase(assetInfo) {}
 
-        DArray<std::shared_ptr<Mesh>> &meshes() { return _meshes; }
+        astl::vector<std::shared_ptr<Mesh>> &meshes() { return _meshes; }
 
-        const DArray<std::shared_ptr<AssetBase>> &textures() const { return _textures; }
+        const astl::vector<std::shared_ptr<AssetBase>> &textures() const { return _textures; }
 
-        const DArray<MaterialNode> &materials() const { return _materials; }
+        const astl::vector<MaterialNode> &materials() const { return _materials; }
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
     private:
-        DArray<std::shared_ptr<Mesh>> _meshes;
-        DArray<std::shared_ptr<AssetBase>> _textures;
-        DArray<MaterialNode> _materials;
+        astl::vector<std::shared_ptr<Mesh>> _meshes;
+        astl::vector<std::shared_ptr<AssetBase>> _textures;
+        astl::vector<MaterialNode> _materials;
 
         bool deserializeMeshes(const rapidjson::Value &obj);
         bool deserializeTextures(const rapidjson::Value &obj);
@@ -178,7 +178,7 @@ namespace models
     struct FileNode
     {
         std::string name;                 // Name of the file node.
-        DArray<FileNode> children;        // Child nodes of this file node.
+        astl::vector<FileNode> children;        // Child nodes of this file node.
         bool isFolder{false};             // Flag indicating if the node is a folder.
         std::shared_ptr<AssetBase> asset; // Shared pointer to the asset associated with the node.
     };

@@ -146,7 +146,7 @@ namespace models
         try
         {
             _path = getField<std::string>(obj, "path");
-            HashMap<std::string, Format> formatMap = {{"obj", Format::Obj}};
+            astl::hashmap<std::string, Format> formatMap = {{"obj", Format::Obj}};
             auto it = formatMap.find(getField<std::string>(obj, "format"));
             if (it != formatMap.end())
                 _format = it->second;

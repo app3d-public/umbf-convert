@@ -62,7 +62,7 @@ namespace assettool
         }
     }
 
-    void printMaterialNode(assets::MaterialNode &node, DArray<assets::Asset> &textures)
+    void printMaterialNode(assets::MaterialNode &node, astl::vector<assets::Asset> &textures)
     {
         if (node.textured)
         {

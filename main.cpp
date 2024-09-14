@@ -1,6 +1,5 @@
 #include <args/args.hxx>
 #include <core/log.hpp>
-#include <core/task.hpp>
 #include <iostream>
 #include "app/app.hpp"
 
@@ -119,7 +118,6 @@ int main(int argc, char **argv)
     app.run();
 
     meta::clearStreams();
-    TaskManager::global().await(true);
     logging::mng->await();
     logging::LogManager::destroy();
     return app.statusCode();

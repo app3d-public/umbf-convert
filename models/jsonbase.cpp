@@ -203,7 +203,7 @@ namespace models
 
     vk::Format parseVkFormat(std::string str)
     {
-        static const Map<std::string, vk::Format> formatMap = {{"R8G8B8A8_UNORM", vk::Format::eR8G8B8A8Unorm},
+        static const astl::map<std::string, vk::Format> formatMap = {{"R8G8B8A8_UNORM", vk::Format::eR8G8B8A8Unorm},
                                                                {"R8G8B8A8_SNORM", vk::Format::eR8G8B8A8Snorm},
                                                                {"R8G8B8A8_SRGB", vk::Format::eR8G8B8A8Srgb},
                                                                {"R8G8B8A8_SINT", vk::Format::eR8G8B8A8Sint},

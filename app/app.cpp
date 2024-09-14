@@ -98,7 +98,7 @@ namespace assettool
         assetInfo.type = assets::Type::Scene;
         assetInfo.compressed = true;
         std::shared_ptr<models::Scene> sceneInfo = std::make_shared<models::Scene>(assetInfo);
-        HashMap<std::string, models::Mesh::Format> formats = {{"obj", models::Mesh::Format::Obj}};
+        astl::hashmap<std::string, models::Mesh::Format> formats = {{"obj", models::Mesh::Format::Obj}};
         auto ext = _input.extension().string();
         auto it = formats.find(ext.substr(1));
         if (it == formats.end())
