@@ -101,13 +101,8 @@ namespace assettool
         logInfo("Objects size: %zu", objects.size());
         for (auto &object : objects)
         {
-            auto &pos = object.transform.position;
-            auto &rot = object.transform.rotation;
-            auto &scale = object.transform.scale;
             logInfo("------------------------------");
-            logInfo("Position: %f %f %f", pos.x, pos.y, pos.z);
-            logInfo("Rotation: %f %f %f", rot.x, rot.y, rot.z);
-            logInfo("Scale: %f %f %f", scale.x, scale.y, scale.z);
+
             if (object.meta.begin() == object.meta.end())
                 logInfo("Meta: no");
             else
