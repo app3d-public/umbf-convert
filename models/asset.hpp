@@ -27,7 +27,7 @@ namespace models
     class Image final : public JsonBase, public AssetBase
     {
     public:
-        explicit Image(const InfoHeader &assetInfo, const std::shared_ptr<JsonBase> &serializer = nullptr,
+        explicit Image(const InfoHeader &assetInfo, const astl::shared_ptr<JsonBase> &serializer = nullptr,
                        u32 signature = 0)
             : AssetBase(assetInfo), _signature(signature), _serializer(serializer)
         {
@@ -35,13 +35,13 @@ namespace models
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
-        std::shared_ptr<JsonBase> &serializer() { return _serializer; }
+        astl::shared_ptr<JsonBase> &serializer() { return _serializer; }
 
         u32 signature() const { return _signature; }
 
     private:
         u32 _signature;
-        std::shared_ptr<JsonBase> _serializer;
+        astl::shared_ptr<JsonBase> _serializer;
     };
 
     class Image2D final : public JsonBase
@@ -63,7 +63,7 @@ namespace models
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
-        astl::vector<std::shared_ptr<Image2D>> &images() { return _images; }
+        astl::vector<astl::shared_ptr<Image2D>> &images() { return _images; }
 
         u64 width() const { return _width; }
 
@@ -81,7 +81,7 @@ namespace models
         u8 _bytesPerChannel;
         vk::Format _imageFormat;
         int _precision;
-        astl::vector<std::shared_ptr<Image2D>> _images;
+        astl::vector<astl::shared_ptr<Image2D>> _images;
     };
 
     class Material final : public JsonBase, public AssetBase
@@ -89,14 +89,14 @@ namespace models
     public:
         explicit Material(const InfoHeader &assetInfo) : AssetBase(assetInfo) {}
 
-        const astl::vector<std::shared_ptr<AssetBase>> &textures() const { return _textures; }
+        const astl::vector<astl::shared_ptr<AssetBase>> &textures() const { return _textures; }
 
         assets::MaterialNode albedo() { return _albedoNode; }
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
     private:
-        astl::vector<std::shared_ptr<AssetBase>> _textures;
+        astl::vector<astl::shared_ptr<AssetBase>> _textures;
         assets::MaterialNode _albedoNode;
 
         static void parseNodeInfo(const rapidjson::Value &nodeInfo, assets::MaterialNode &node);
@@ -134,22 +134,22 @@ namespace models
         struct MaterialNode
         {
             std::string name;
-            std::shared_ptr<AssetBase> asset;
+            astl::shared_ptr<AssetBase> asset;
         };
 
         explicit Scene(const InfoHeader &assetInfo) : AssetBase(assetInfo) {}
 
-        astl::vector<std::shared_ptr<Mesh>> &meshes() { return _meshes; }
+        astl::vector<astl::shared_ptr<Mesh>> &meshes() { return _meshes; }
 
-        const astl::vector<std::shared_ptr<AssetBase>> &textures() const { return _textures; }
+        const astl::vector<astl::shared_ptr<AssetBase>> &textures() const { return _textures; }
 
         const astl::vector<MaterialNode> &materials() const { return _materials; }
 
         virtual bool deserializeObject(const rapidjson::Value &obj) override;
 
     private:
-        astl::vector<std::shared_ptr<Mesh>> _meshes;
-        astl::vector<std::shared_ptr<AssetBase>> _textures;
+        astl::vector<astl::shared_ptr<Mesh>> _meshes;
+        astl::vector<astl::shared_ptr<AssetBase>> _textures;
         astl::vector<MaterialNode> _materials;
 
         bool deserializeMeshes(const rapidjson::Value &obj);
@@ -180,7 +180,7 @@ namespace models
         std::string name;                 // Name of the file node.
         astl::vector<FileNode> children;        // Child nodes of this file node.
         bool isFolder{false};             // Flag indicating if the node is a folder.
-        std::shared_ptr<AssetBase> asset; // Shared pointer to the asset associated with the node.
+        astl::shared_ptr<AssetBase> asset; // Shared pointer to the asset associated with the node.
     };
 
     class Library final : public JsonBase, public AssetBase
@@ -197,7 +197,7 @@ namespace models
 
         static bool parseFileTree(const rapidjson::Value &obj, FileNode &node);
 
-        static std::shared_ptr<AssetBase> parseAsset(const rapidjson::Value &obj, FileNode &node);
+        static astl::shared_ptr<AssetBase> parseAsset(const rapidjson::Value &obj, FileNode &node);
     };
 
 } // namespace models

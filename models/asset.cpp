@@ -29,10 +29,10 @@ namespace models
                 switch (_signature)
                 {
                     case assets::sign_block::image2D:
-                        _serializer = std::make_shared<Image2D>();
+                        _serializer = astl::make_shared<Image2D>();
                         break;
                     case assets::sign_block::image_atlas:
-                        _serializer = std::make_shared<Atlas>();
+                        _serializer = astl::make_shared<Atlas>();
                         break;
                     default:
                         throw std::runtime_error("Unsupported texture type");
@@ -76,7 +76,7 @@ namespace models
             {
                 InfoHeader imageInfo{};
                 imageInfo.deserializeObject(image);
-                std::shared_ptr<Image2D> texture = std::make_shared<Image2D>();
+                astl::shared_ptr<Image2D> texture = astl::make_shared<Image2D>();
                 if (!texture->deserializeObject(image)) throw std::runtime_error("Failed to deserialize image");
                 _images.push_back(texture);
             }
@@ -97,18 +97,18 @@ namespace models
             {
                 InfoHeader textureInfo{};
                 textureInfo.deserializeObject(texture);
-                std::shared_ptr<AssetBase> asset;
+                astl::shared_ptr<AssetBase> asset;
                 switch (textureInfo.type)
                 {
                     case assets::Type::Image:
                     {
-                        std::shared_ptr<Image> textureAsset = std::make_shared<Image>(textureInfo);
+                        astl::shared_ptr<Image> textureAsset = astl::make_shared<Image>(textureInfo);
                         if (textureAsset->deserializeObject(texture)) asset = textureAsset;
                         break;
                     }
                     case assets::Type::Target:
                     {
-                        std::shared_ptr<Target> textureAsset = std::make_shared<Target>(textureInfo);
+                        astl::shared_ptr<Target> textureAsset = astl::make_shared<Target>(textureInfo);
                         if (textureAsset->deserializeObject(texture)) asset = textureAsset;
                         break;
                     }
@@ -166,7 +166,7 @@ namespace models
     {
         for (auto &mesh : getField<rapidjson::Value::ConstArray>(obj, "meshes"))
         {
-            auto meshAsset = std::make_shared<Mesh>();
+            auto meshAsset = astl::make_shared<Mesh>();
             if (!meshAsset->deserializeObject(mesh)) return false;
             _meshes.push_back(meshAsset);
         }
@@ -179,18 +179,18 @@ namespace models
         {
             InfoHeader textureInfo{};
             textureInfo.deserializeObject(texture);
-            std::shared_ptr<AssetBase> asset;
+            astl::shared_ptr<AssetBase> asset;
             switch (textureInfo.type)
             {
                 case assets::Type::Image:
                 {
-                    std::shared_ptr<Image> imageAsset = std::make_shared<Image>(textureInfo);
+                    astl::shared_ptr<Image> imageAsset = astl::make_shared<Image>(textureInfo);
                     if (imageAsset->deserializeObject(texture)) asset = imageAsset;
                     break;
                 }
                 case assets::Type::Target:
                 {
-                    std::shared_ptr<Target> imageAsset = std::make_shared<Target>(textureInfo);
+                    astl::shared_ptr<Target> imageAsset = astl::make_shared<Target>(textureInfo);
                     if (imageAsset->deserializeObject(texture)) asset = imageAsset;
                     break;
                 }
@@ -216,18 +216,18 @@ namespace models
             std::string name = getField<std::string>(material, "name");
             InfoHeader materialInfo{};
             materialInfo.deserializeObject(material);
-            std::shared_ptr<AssetBase> asset;
+            astl::shared_ptr<AssetBase> asset;
             switch (materialInfo.type)
             {
                 case assets::Type::Material:
                 {
-                    std::shared_ptr<Material> materialAsset = std::make_shared<Material>(materialInfo);
+                    astl::shared_ptr<Material> materialAsset = astl::make_shared<Material>(materialInfo);
                     if (materialAsset->deserializeObject(material)) asset = materialAsset;
                     break;
                 }
                 case assets::Type::Target:
                 {
-                    std::shared_ptr<Target> materialAsset = std::make_shared<Target>(materialInfo);
+                    astl::shared_ptr<Target> materialAsset = astl::make_shared<Target>(materialInfo);
                     if (materialAsset->deserializeObject(material)) asset = materialAsset;
                     break;
                 }
@@ -280,7 +280,7 @@ namespace models
         return true;
     }
 
-    std::shared_ptr<AssetBase> Library::parseAsset(const rapidjson::Value &obj, FileNode &node)
+    astl::shared_ptr<AssetBase> Library::parseAsset(const rapidjson::Value &obj, FileNode &node)
     {
         InfoHeader assetInfo{};
         if (!assetInfo.deserializeObject(obj)) throw std::runtime_error("Failed to deserialize asset");
@@ -288,32 +288,32 @@ namespace models
         {
             case assets::Type::Image:
             {
-                std::shared_ptr<Image> asset = std::make_shared<Image>(assetInfo);
+                astl::shared_ptr<Image> asset = astl::make_shared<Image>(assetInfo);
                 if (!asset->deserializeObject(obj)) throw std::runtime_error("Failed to deserialize image asset");
                 return asset;
             }
             case assets::Type::Material:
             {
-                std::shared_ptr<Material> asset = std::make_shared<Material>(assetInfo);
+                astl::shared_ptr<Material> asset = astl::make_shared<Material>(assetInfo);
                 if (!asset->deserializeObject(obj)) throw std::runtime_error("Failed to deserialize material asset");
                 return asset;
             }
             case assets::Type::Scene:
             {
-                std::shared_ptr<Scene> sceneAsset = std::make_shared<Scene>(assetInfo);
+                astl::shared_ptr<Scene> sceneAsset = astl::make_shared<Scene>(assetInfo);
                 if (!sceneAsset->deserializeObject(obj)) throw std::runtime_error("Failed to deserialize scene asset");
                 return sceneAsset;
             }
             case assets::Type::Target:
             {
-                std::shared_ptr<Target> targetAsset = std::make_shared<Target>(assetInfo);
+                astl::shared_ptr<Target> targetAsset = astl::make_shared<Target>(assetInfo);
                 if (!targetAsset->deserializeObject(obj))
                     throw std::runtime_error("Failed to deserialize target asset");
                 return targetAsset;
             }
             case assets::Type::Library:
             {
-                std::shared_ptr<Library> libraryAsset = std::make_shared<Library>(assetInfo);
+                astl::shared_ptr<Library> libraryAsset = astl::make_shared<Library>(assetInfo);
                 if (!libraryAsset->deserializeObject(obj))
                     throw std::runtime_error("Failed to deserialize library asset");
                 return libraryAsset;

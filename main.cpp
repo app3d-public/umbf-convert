@@ -104,15 +104,15 @@ int main(int argc, char **argv)
     logging::mng->defaultLogger(logger);
 
     // Assets meta
-    meta::initStreams({{meta::sign_block_external, new meta::ExternalStream()},
-                       {assets::sign_block::image2D, new assets::Image2DStream()},
-                       {assets::sign_block::image_atlas, new assets::AtlasStream()},
-                       {assets::sign_block::scene, new assets::SceneStream()},
-                       {assets::sign_block::mesh, new assets::mesh::MeshStream()},
-                       {assets::sign_block::material, new assets::MaterialStream()},
-                       {assets::sign_block::material_info, new assets::MaterialInfoStream()},
-                       {assets::sign_block::target, new assets::TargetStream()},
-                       {assets::sign_block::library, new assets::LibraryStream()}});
+    meta::initStreams({{meta::sign_block::external_block, &meta::streams::external_block},
+                       {assets::sign_block::image2D, &assets::streams::image2D},
+                       {assets::sign_block::image_atlas, &assets::streams::image_atlas},
+                       {assets::sign_block::scene, &assets::streams::scene},
+                       {assets::sign_block::mesh, &assets::streams::mesh},
+                       {assets::sign_block::material, &assets::streams::material},
+                       {assets::sign_block::material_info, &assets::streams::material_info},
+                       {assets::sign_block::target, &assets::streams::target},
+                       {assets::sign_block::library, &assets::streams::library}});
 
     assettool::App app(args.input, args.output, args.mode, args.check);
     app.run();

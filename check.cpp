@@ -1,11 +1,10 @@
 #include "check.hpp"
 #include <core/log.hpp>
-#include <memory>
 
 namespace assettool
 {
 
-    void printMetaHeader(const std::shared_ptr<assets::Asset> &asset, assets::Type dstType)
+    void printMetaHeader(const astl::shared_ptr<assets::Asset> &asset, assets::Type dstType)
     {
         logInfo("--------- Meta Header --------");
         logInfo("Type: %s", assets::toString(asset->header.type).c_str());
@@ -30,7 +29,7 @@ namespace assettool
         }
     }
 
-    void printImage2D(const std::shared_ptr<assets::Image2D> &image)
+    void printImage2D(const astl::shared_ptr<assets::Image2D> &image)
     {
         logInfo("--------- Image Info ---------");
         logInfo("Width: %d", image->width);
@@ -48,7 +47,7 @@ namespace assettool
         scalable_free(image->pixels);
     }
 
-    void printAtlas(const std::shared_ptr<assets::Atlas> &atlas)
+    void printAtlas(const astl::shared_ptr<assets::Atlas> &atlas)
     {
         logInfo("--------- Atlas Info ---------");
         logInfo("Images size: %zu", atlas->packData.size());
@@ -80,11 +79,11 @@ namespace assettool
         }
     }
 
-    void printMaterialInfo(const std::shared_ptr<assets::Asset> &asset)
+    void printMaterialInfo(const astl::shared_ptr<assets::Asset> &asset)
     {
         printMetaHeader(asset, assets::Type::Material);
         logInfo("--------- Material Info -------");
-        auto material = std::static_pointer_cast<assets::Material>(*asset->blocks.begin());
+        auto material = astl::static_pointer_cast<assets::Material>(*asset->blocks.begin());
         auto &textures = material->textures;
         logInfo("Textures size: %zu", textures.size());
         logInfo("Albedo:");
@@ -92,17 +91,18 @@ namespace assettool
         logInfo("------------------------------");
     }
 
-    void printSceneInfo(const std::shared_ptr<assets::Asset> &asset)
+    void printSceneInfo(const astl::shared_ptr<assets::Asset> &asset)
     {
         printMetaHeader(asset, assets::Type::Scene);
-        auto scene = std::static_pointer_cast<assets::Scene>(asset->blocks.front());
+        auto scene = astl::static_pointer_cast<assets::Scene>(asset->blocks.front());
         logInfo("--------- Scene Info ---------");
         auto &objects = scene->objects;
         logInfo("Objects size: %zu", objects.size());
         for (auto &object : objects)
         {
             logInfo("------------------------------");
-
+            logInfo("ID: %llx", object.id);
+            logInfo("Name: %s", object.name.c_str());
             if (object.meta.begin() == object.meta.end())
                 logInfo("Meta: no");
             else
@@ -154,7 +154,8 @@ namespace assettool
                         logInfo("   | Name: null");
                     else
                     {
-                        auto matMeta = std::static_pointer_cast<assets::MaterialInfo>(*it);
+                        auto matMeta = astl::static_pointer_cast<assets::MaterialInfo>(*it);
+                        logInfo("   | ID: %llu", matMeta->id);
                         logInfo("   | Name: %s", matMeta->name.c_str());
                     }
                     break;
@@ -167,11 +168,11 @@ namespace assettool
         logInfo("------------------------------");
     }
 
-    void printTargetInfo(const std::shared_ptr<assets::Asset> &asset)
+    void printTargetInfo(const astl::shared_ptr<assets::Asset> &asset)
     {
         printMetaHeader(asset, assets::Type::Target);
         logInfo("--------- Target Info ---------");
-        auto target = std::static_pointer_cast<assets::Target>(asset->blocks.front());
+        auto target = astl::static_pointer_cast<assets::Target>(asset->blocks.front());
         switch (target->addr.proto)
         {
             case assets::Target::Addr::Proto::File:
@@ -206,11 +207,11 @@ namespace assettool
                 printFileHierarchy(node.children[i], depth + 1, newPrefix);
     }
 
-    void printLibraryInfo(const std::shared_ptr<assets::Asset> &asset)
+    void printLibraryInfo(const astl::shared_ptr<assets::Asset> &asset)
     {
         printMetaHeader(asset, assets::Type::Library);
         logInfo("--------- Library Info -------");
-        auto library = std::static_pointer_cast<assets::Library>(asset->blocks.front());
+        auto library = astl::static_pointer_cast<assets::Library>(asset->blocks.front());
         printFileHierarchy(library->fileTree);
         logInfo("------------------------------");
     }

@@ -34,8 +34,8 @@ namespace assettool
         astl::vector<ImageResource> _images;
 
         static bool checkAsset(const std::filesystem::path &path);
-        std::shared_ptr<assets::Asset> getAssetByImage();
-        std::shared_ptr<assets::Asset> getAssetByScene();
-        std::shared_ptr<assets::Asset> getAssetByJson();
+        astl::shared_ptr<assets::Asset> getAssetByImage();
+        astl::shared_ptr<assets::Asset> getAssetByScene();
+        astl::shared_ptr<assets::Asset> getAssetByJson();
     };
 } // namespace assettool
