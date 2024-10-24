@@ -44,7 +44,7 @@ namespace assettool
         logInfo("Bytes per channel: %d bit", image->bytesPerChannel * 8);
         logInfo("Image format: %s", vk::to_string(image->imageFormat).c_str());
         logInfo("Size: %llu", image->imageSize());
-        scalable_free(image->pixels);
+        astl::release(image->pixels);
     }
 
     void printAtlas(const astl::shared_ptr<assets::Atlas> &atlas)

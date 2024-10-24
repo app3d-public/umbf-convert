@@ -154,7 +154,7 @@ namespace assettool
             }
             case assets::Type::Scene:
             {
-                std::shared_ptr<models::Scene> model = std::make_shared<models::Scene>(assetInfo);
+                astl::shared_ptr<models::Scene> model = astl::make_shared<models::Scene>(assetInfo);
                 if (!model->deserializeObject(json))
                 {
                     logError("Failed to deserialize scene configuration: %ls", _input.c_str());
