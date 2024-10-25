@@ -93,15 +93,16 @@ int main(int argc, char **argv)
     auto [result, args] = parseArgs(argc, argv);
     if (result != RESULT_CONTINUE) return result;
 
-    logging::LogManager::init();
-    auto logger = logging::mng->addLogger<logging::ConsoleLogger>("backend");
+    task::ServiceDispatch sd;
+    logging::g_LogService = astl::alloc<logging::LogService>();
+    sd.registerService(logging::g_LogService);
+    logging::g_DefaultLogger = logging::g_LogService->addLogger<logging::ConsoleLogger>("app");
 #ifdef NDEBUG
-    logging::mng->level(logging::Level::Info);
+    logging::g_LogService->level(logging::Level::Info);
 #else
-    logging::mng->level(logging::Level::Trace);
+    logging::g_LogService->level(logging::Level::Trace);
 #endif
-    logger->setPattern("%(color_auto)%(level_name)\t%(message)%(color_off)\n");
-    logging::mng->defaultLogger(logger);
+    logging::g_DefaultLogger->setPattern("%(color_auto)%(level_name)\t%(message)%(color_off)\n");
 
     // Assets meta
     meta::initStreams({{meta::sign_block::external_block, &meta::streams::external_block},
@@ -118,7 +119,6 @@ int main(int argc, char **argv)
     app.run();
 
     meta::clearStreams();
-    logging::mng->await();
-    logging::LogManager::destroy();
+    logging::g_LogService->await();
     return app.statusCode();
 }
