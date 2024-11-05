@@ -19,7 +19,7 @@ namespace assettool
     }
 
     astl::shared_ptr<assets::Image2D> modelToImage2D(const astl::shared_ptr<models::Image2D> &src,
-                                                    astl::vector<ImageResource> &resources)
+                                                     astl::vector<ImageResource> &resources)
     {
         logInfo("Loading image: %s", src->path().string().c_str());
         ImageResource imageResource(src->path());
@@ -35,7 +35,7 @@ namespace assettool
     }
 
     astl::shared_ptr<meta::Block> modelToImageAtlas(const astl::shared_ptr<models::Atlas> &src,
-                                                   astl::vector<ImageResource> &resources)
+                                                    astl::vector<ImageResource> &resources)
     {
         auto atlas = astl::make_shared<assets::Atlas>();
         atlas->width = src->width();
@@ -44,6 +44,7 @@ namespace assettool
         atlas->channelCount = 4;
         atlas->channelNames = {"Red", "Green", "Blue", "Alpha"};
         atlas->imageFormat = src->imageFormat();
+        atlas->padding = 1;
         std::vector<assets::Atlas::Rect> rects;
         for (const auto &image : src->images())
         {
@@ -60,7 +61,8 @@ namespace assettool
                 texture2D->imageFormat = atlas->imageFormat;
             }
             atlas->images.push_back(texture2D);
-            rects.emplace_back(rectpack2D::rect_xywh(0, 0, texture2D->width, texture2D->height));
+            rects.emplace_back(rectpack2D::rect_xywh(0, 0, texture2D->width + 2 * atlas->padding,
+                                                     texture2D->height + 2 * atlas->padding));
         }
         if (!assets::packAtlas(std::max(atlas->width, atlas->height), src->precision(),
                                rectpack2D::flipping_option::DISABLED, rects))
@@ -74,7 +76,7 @@ namespace assettool
     }
 
     astl::shared_ptr<meta::Block> modelToImage(const astl::shared_ptr<models::Image> &src,
-                                              astl::vector<ImageResource> &resources)
+                                               astl::vector<ImageResource> &resources)
     {
         if (src->signature() == assets::sign_block::image_atlas)
         {
@@ -100,7 +102,7 @@ namespace assettool
     }
 
     astl::shared_ptr<assets::Asset> modelToImageAny(astl::shared_ptr<models::AssetBase> &src,
-                                                   astl::vector<ImageResource> &resources)
+                                                    astl::vector<ImageResource> &resources)
     {
         if (!src)
         {
@@ -132,7 +134,7 @@ namespace assettool
     }
 
     astl::shared_ptr<assets::Material> modelToMaterial(const astl::shared_ptr<models::Material> &src,
-                                                      astl::vector<ImageResource> &resources)
+                                                       astl::vector<ImageResource> &resources)
     {
         auto material = astl::make_shared<assets::Material>();
         for (auto &texture : src->textures())
@@ -142,7 +144,7 @@ namespace assettool
     }
 
     astl::shared_ptr<assets::Asset> modelToMaterialAny(astl::shared_ptr<models::AssetBase> &src,
-                                                      astl::vector<ImageResource> &resources, const std::string &name)
+                                                       astl::vector<ImageResource> &resources, const std::string &name)
     {
         if (!src)
         {
