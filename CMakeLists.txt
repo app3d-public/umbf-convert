@@ -8,15 +8,10 @@ add_files(assettool RECURSE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_executable(assettool ${SOURCE_FILES})
 
-target_include_directories(assettool PRIVATE $<TARGET_PROPERTY:app3d-core,INCLUDE_DIRECTORIES>)
-target_include_directories(assettool PRIVATE $<TARGET_PROPERTY:app3d-assets,INCLUDE_DIRECTORIES>)
-target_include_directories(assettool PRIVATE $<TARGET_PROPERTY:app3d-ecl,INCLUDE_DIRECTORIES>)
-
 target_link_libraries(assettool PRIVATE
     app3d-core
     app3d-assets
     app3d-ecl
-    ${OPENIMAGEIO_LIBRARIES}
 )
 
 if(BUILD_TESTS)
@@ -31,3 +26,15 @@ set_target_properties(assettool
     CXX_EXTENSIONS NO
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/tools"
 )
+
+if(WIN32)
+    # Manifest
+    gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
+        app3d-core:${app3d-core_VERSION}
+        app3d-assets:${app3d-assets_VERSION}
+        app3d-ecl:${app3d-ecl_VERSION}
+        vma:${vma_VERSION}
+    )
+    # Config
+    gen_app_config()
+endif()

@@ -1,6 +1,7 @@
 #include "jsonbase.hpp"
 #include <assets/asset.hpp>
-#include <astl/basic_types.hpp>
+#include <astl/map.hpp>
+#include <astl/scalars.hpp>
 #include <fstream>
 #include <glm/glm.hpp>
 #include <sstream>
