@@ -1,17 +1,15 @@
 {
-    "name": "test/testlib",
+    "name": "testlib",
     "type": "library",
     "children": [
         {
             "name": "textures",
             "children": [
                 {
-                    "name": "devCheck:target",
+                    "name": "texture",
                     "asset": {
                         "type": "target",
-                        "proto": "file",
-                        "url": "texture.a3d",
-                        "cache_path": "@CMAKE_CURRENT_BINARY_DIR@/data/output/texture.a3d",
+                        "url": "texture.umia",
                         "target_type": "image",
                         "target_compress": true
                     }
@@ -23,12 +21,10 @@
             "name": "materials",
             "children": [
                 {
-                    "name": "mat:test:target",
+                    "name": "material_targeted",
                     "asset": {
                         "type": "target",
-                        "proto": "file",
-                        "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/material_targeted.a3d",
-                        "cache_path": "tests/testlib/material_targeted.a3d",
+                        "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/material_targeted.umm",
                         "target_type": "material",
                         "target_compress": true
                     }
@@ -40,12 +36,10 @@
             "name": "meshes",
             "children": [
                 {
-                    "name": "scene:test:target",
+                    "name": "scene_targeted",
                     "asset": {
                         "type": "target",
-                        "proto": "file",
-                        "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/scene_targeted.a3d",
-                        "cache_path": "tests/testlib/scene_targeted.a3d",
+                        "url": "@CMAKE_CURRENT_BINARY_DIR@/data/output/scene_targeted.umsa",
                         "target_type": "scene",
                         "target_compress": true
                     }

@@ -1,14 +1,14 @@
-#include "asset.hpp"
-#include <core/log.hpp>
+#include "umbf.hpp"
+#include <acul/log.hpp>
+#include <umbf/version.h>
 
 namespace models
 {
-    bool InfoHeader::deserializeObject(const rapidjson::Value &obj)
+    bool UMBFRoot::deserializeObject(const rapidjson::Value &obj)
     {
         try
         {
-            type = getField<assets::Type>(obj, "type");
-            compressed = getField<bool>(obj, "compress", false);
+            type_sign = getFormatField(obj, "type");
         }
         catch (const std::exception &e)
         {
@@ -23,19 +23,19 @@ namespace models
         try
         {
             _signature = getImageType(obj, "texture_type", false);
-            if (_signature == 0) _signature = assets::sign_block::image2D;
+            if (_signature == 0) _signature = umbf::sign_block::meta::image2D;
             if (!_serializer)
             {
                 switch (_signature)
                 {
-                    case assets::sign_block::image2D:
-                        _serializer = astl::make_shared<Image2D>();
+                    case umbf::sign_block::meta::image2D:
+                        _serializer = acul::make_shared<IPath>(umbf::sign_block::format::image);
                         break;
-                    case assets::sign_block::image_atlas:
-                        _serializer = astl::make_shared<Atlas>();
+                    case umbf::sign_block::meta::image_atlas:
+                        _serializer = acul::make_shared<Atlas>();
                         break;
                     default:
-                        throw std::runtime_error("Unsupported texture type");
+                        throw acul::runtime_error("Unsupported texture type");
                 }
             }
             else
@@ -49,15 +49,15 @@ namespace models
         }
     }
 
-    bool Image2D::deserializeObject(const rapidjson::Value &obj)
+    bool IPath::deserializeObject(const rapidjson::Value &obj)
     {
         try
         {
-            _path = getField<std::string>(obj, "path");
+            _path = getField<acul::string>(obj, "path");
         }
         catch (const std::exception &e)
         {
-            logError("Texture2D Deserialization error: %s", e.what());
+            logError("IPath deserialization error: %s", e.what());
             return false;
         }
         return true;
@@ -74,10 +74,8 @@ namespace models
             _imageFormat = getField<vk::Format>(obj, "format");
             for (const auto &image : getField<rapidjson::Value::ConstArray>(obj, "images"))
             {
-                InfoHeader imageInfo{};
-                imageInfo.deserializeObject(image);
-                astl::shared_ptr<Image2D> texture = astl::make_shared<Image2D>();
-                if (!texture->deserializeObject(image)) throw std::runtime_error("Failed to deserialize image");
+                acul::shared_ptr<IPath> texture = acul::make_shared<IPath>(umbf::sign_block::format::image);
+                if (!texture->deserializeObject(image)) throw acul::runtime_error("Failed to deserialize image");
                 _images.push_back(texture);
             }
         }
@@ -95,25 +93,24 @@ namespace models
         {
             for (const auto &texture : getField<rapidjson::Value::ConstArray>(obj, "textures"))
             {
-                InfoHeader textureInfo{};
-                textureInfo.deserializeObject(texture);
-                astl::shared_ptr<AssetBase> asset;
-                switch (textureInfo.type)
+                u16 tex_type = getFormatField(texture, "type");
+                acul::shared_ptr<UMBFRoot> asset;
+                switch (tex_type)
                 {
-                    case assets::Type::Image:
+                    case umbf::sign_block::format::image:
                     {
-                        astl::shared_ptr<Image> textureAsset = astl::make_shared<Image>(textureInfo);
+                        acul::shared_ptr<Image> textureAsset = acul::make_shared<Image>();
                         if (textureAsset->deserializeObject(texture)) asset = textureAsset;
                         break;
                     }
-                    case assets::Type::Target:
+                    case umbf::sign_block::format::target:
                     {
-                        astl::shared_ptr<Target> textureAsset = astl::make_shared<Target>(textureInfo);
+                        acul::shared_ptr<Target> textureAsset = acul::make_shared<Target>();
                         if (textureAsset->deserializeObject(texture)) asset = textureAsset;
                         break;
                     }
                     default:
-                        logError("Unsupported texture type: %s", toString(textureInfo.type).c_str());
+                        logError("Unsupported texture type: %x", tex_type);
                         return false;
                 }
                 if (asset)
@@ -134,24 +131,18 @@ namespace models
         return true;
     }
 
-    void Material::parseNodeInfo(const rapidjson::Value &nodeInfo, assets::MaterialNode &node)
+    void Material::parseNodeInfo(const rapidjson::Value &nodeInfo, umbf::MaterialNode &node)
     {
         node.rgb = getField<glm::vec3>(nodeInfo, "rgb");
         node.textured = getField<bool>(nodeInfo, "textured");
-        if (node.textured) node.textureID = getField<int>(nodeInfo, "textureID");
+        if (node.textured) node.texture_id = getField<int>(nodeInfo, "texture_id");
     }
 
     bool Mesh::deserializeObject(const rapidjson::Value &obj)
     {
         try
         {
-            _path = getField<std::string>(obj, "path");
-            astl::hashmap<std::string, Format> formatMap = {{"obj", Format::Obj}};
-            auto it = formatMap.find(getField<std::string>(obj, "format"));
-            if (it != formatMap.end())
-                _format = it->second;
-            else
-                throw std::runtime_error("Unsupported scene format");
+            _path = getField<acul::string>(obj, "path");
             _matID = getField<int>(obj, "matID", false);
         }
         catch (const std::exception &e)
@@ -166,7 +157,7 @@ namespace models
     {
         for (auto &mesh : getField<rapidjson::Value::ConstArray>(obj, "meshes"))
         {
-            auto meshAsset = astl::make_shared<Mesh>();
+            auto meshAsset = acul::make_shared<Mesh>();
             if (!meshAsset->deserializeObject(mesh)) return false;
             _meshes.push_back(meshAsset);
         }
@@ -177,25 +168,24 @@ namespace models
     {
         for (const auto &texture : getField<rapidjson::Value::ConstArray>(obj, "textures"))
         {
-            InfoHeader textureInfo{};
-            textureInfo.deserializeObject(texture);
-            astl::shared_ptr<AssetBase> asset;
-            switch (textureInfo.type)
+            u16 tex_type = getFormatField(texture, "type");
+            acul::shared_ptr<UMBFRoot> asset;
+            switch (tex_type)
             {
-                case assets::Type::Image:
+                case umbf::sign_block::format::image:
                 {
-                    astl::shared_ptr<Image> imageAsset = astl::make_shared<Image>(textureInfo);
+                    acul::shared_ptr<Image> imageAsset = acul::make_shared<Image>();
                     if (imageAsset->deserializeObject(texture)) asset = imageAsset;
                     break;
                 }
-                case assets::Type::Target:
+                case umbf::sign_block::format::target:
                 {
-                    astl::shared_ptr<Target> imageAsset = astl::make_shared<Target>(textureInfo);
+                    acul::shared_ptr<Target> imageAsset = acul::make_shared<Target>();
                     if (imageAsset->deserializeObject(texture)) asset = imageAsset;
                     break;
                 }
                 default:
-                    logError("Unsupported image type: %d", (int)textureInfo.type);
+                    logError("Unsupported image type: %d", tex_type);
                     return false;
             }
             if (asset)
@@ -213,26 +203,25 @@ namespace models
     {
         for (const auto &material : getField<rapidjson::Value::ConstArray>(obj, "materials"))
         {
-            std::string name = getField<std::string>(material, "name");
-            InfoHeader materialInfo{};
-            materialInfo.deserializeObject(material);
-            astl::shared_ptr<AssetBase> asset;
-            switch (materialInfo.type)
+            acul::string name = getField<acul::string>(material, "name");
+            u16 mat_type = getFormatField(material, "type");
+            acul::shared_ptr<UMBFRoot> asset;
+            switch (mat_type)
             {
-                case assets::Type::Material:
+                case umbf::sign_block::format::material:
                 {
-                    astl::shared_ptr<Material> materialAsset = astl::make_shared<Material>(materialInfo);
+                    acul::shared_ptr<Material> materialAsset = acul::make_shared<Material>();
                     if (materialAsset->deserializeObject(material)) asset = materialAsset;
                     break;
                 }
-                case assets::Type::Target:
+                case umbf::sign_block::format::target:
                 {
-                    astl::shared_ptr<Target> materialAsset = astl::make_shared<Target>(materialInfo);
+                    acul::shared_ptr<Target> materialAsset = acul::make_shared<Target>();
                     if (materialAsset->deserializeObject(material)) asset = materialAsset;
                     break;
                 }
                 default:
-                    logError("Unsupported material type: %d", (int)materialInfo.type);
+                    logError("Unsupported material type: %d", mat_type);
                     return false;
             }
             if (asset)
@@ -266,9 +255,11 @@ namespace models
     {
         try
         {
-            _addr.proto = getField<assets::Target::Addr::Proto>(obj, "proto");
-            _addr.url = getField<std::string>(obj, "url");
-            _header.type = getField<assets::Type>(obj, "target_type");
+            _url = getField<acul::string>(obj, "url");
+            _header.vendor_sign = UMBF_VENDOR_ID;
+            _header.vendor_version = UMBF_VERSION;
+            _header.spec_version = UMBF_VERSION;
+            _header.type_sign = getFormatField(obj, "target_type");
             _header.compressed = getField<bool>(obj, "target_compress", false);
             _checksum = getField<u64>(obj, "target_checksum", false);
         }
@@ -280,46 +271,51 @@ namespace models
         return true;
     }
 
-    astl::shared_ptr<AssetBase> Library::parseAsset(const rapidjson::Value &obj, FileNode &node)
+    acul::shared_ptr<UMBFRoot> Library::parseAsset(const rapidjson::Value &obj, FileNode &node)
     {
-        InfoHeader assetInfo{};
-        if (!assetInfo.deserializeObject(obj)) throw std::runtime_error("Failed to deserialize asset");
-        switch (assetInfo.type)
+        u16 assetType = getFormatField(obj, "type");
+        switch (assetType)
         {
-            case assets::Type::Image:
+            case umbf::sign_block::format::image:
             {
-                astl::shared_ptr<Image> asset = astl::make_shared<Image>(assetInfo);
-                if (!asset->deserializeObject(obj)) throw std::runtime_error("Failed to deserialize image asset");
+                acul::shared_ptr<Image> asset = acul::make_shared<Image>();
+                if (!asset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize image asset");
                 return asset;
             }
-            case assets::Type::Material:
+            case umbf::sign_block::format::material:
             {
-                astl::shared_ptr<Material> asset = astl::make_shared<Material>(assetInfo);
-                if (!asset->deserializeObject(obj)) throw std::runtime_error("Failed to deserialize material asset");
+                acul::shared_ptr<Material> asset = acul::make_shared<Material>();
+                if (!asset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize material asset");
                 return asset;
             }
-            case assets::Type::Scene:
+            case umbf::sign_block::format::scene:
             {
-                astl::shared_ptr<Scene> sceneAsset = astl::make_shared<Scene>(assetInfo);
-                if (!sceneAsset->deserializeObject(obj)) throw std::runtime_error("Failed to deserialize scene asset");
+                acul::shared_ptr<Scene> sceneAsset = acul::make_shared<Scene>();
+                if (!sceneAsset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize scene asset");
                 return sceneAsset;
             }
-            case assets::Type::Target:
+            case umbf::sign_block::format::target:
             {
-                astl::shared_ptr<Target> targetAsset = astl::make_shared<Target>(assetInfo);
+                acul::shared_ptr<Target> targetAsset = acul::make_shared<Target>();
                 if (!targetAsset->deserializeObject(obj))
-                    throw std::runtime_error("Failed to deserialize target asset");
+                    throw acul::runtime_error("Failed to deserialize target asset");
                 return targetAsset;
             }
-            case assets::Type::Library:
+            case umbf::sign_block::format::library:
             {
-                astl::shared_ptr<Library> libraryAsset = astl::make_shared<Library>(assetInfo);
+                acul::shared_ptr<Library> libraryAsset = acul::make_shared<Library>();
                 if (!libraryAsset->deserializeObject(obj))
-                    throw std::runtime_error("Failed to deserialize library asset");
+                    throw acul::runtime_error("Failed to deserialize library asset");
                 return libraryAsset;
             }
+            case umbf::sign_block::format::raw:
+            {
+                acul::shared_ptr<IPath> rawAsset = acul::make_shared<IPath>(umbf::sign_block::format::raw);
+                if (!rawAsset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize raw asset");
+                return rawAsset;
+            }
             default:
-                throw std::runtime_error("Unsupported asset type: " + assets::toString(assetInfo.type));
+                throw acul::runtime_error(acul::format("Unsupported asset type: %x", assetType));
         }
         return nullptr;
     }
@@ -328,12 +324,12 @@ namespace models
     {
         try
         {
-            node.name = getField<std::string>(obj, "name");
+            node.name = getField<acul::string>(obj, "name");
             node.isFolder = getField<bool>(obj, "isFolder", false);
             if (!node.isFolder)
             {
                 if (!obj.HasMember("asset") || !obj["asset"].IsObject())
-                    throw std::runtime_error("Missing 'asset' field");
+                    throw acul::runtime_error("Missing 'asset' field");
                 node.asset = parseAsset(obj["asset"], node);
                 return true;
             }
@@ -343,7 +339,7 @@ namespace models
                 if (parseFileTree(child, childNode))
                     node.children.push_back(childNode);
                 else
-                    throw std::runtime_error("Failed to parse file node: " + childNode.name);
+                    throw acul::runtime_error("Failed to parse file node: " + childNode.name);
             }
         }
         catch (const std::exception &e)
@@ -351,10 +347,6 @@ namespace models
             logError("Library Deserialization error: %s", e.what());
             return false;
         }
-
         return true;
     }
-
-    bool Library::deserializeObject(const rapidjson::Value &obj) { return parseFileTree(obj, _fileTree); }
-
 } // namespace models

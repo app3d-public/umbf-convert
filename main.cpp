@@ -1,33 +1,91 @@
+#include <acul/log.hpp>
+#include <acul/meta.hpp>
 #include <args/args.hxx>
-#include <core/log.hpp>
-#include <iostream>
-#include "app/app.hpp"
+#include <assets/asset.hpp>
+#include "convert.hpp"
+#include "extract.hpp"
+#include "show.hpp"
 
-#define RESULT_EXIT_SUCCESS 0
-#define RESULT_EXIT_FAILURE 1
-#define RESULT_CONTINUE     2
+enum class ArgsCommand
+{
+    none,
+    show,
+    extract,
+    convert
+};
+
+enum class ConvertFormat
+{
+    raw,
+    json,
+    image,
+    scene
+};
 
 struct Args
 {
-    assettool::SaveMode mode;
-    std::filesystem::path input;
-    std::filesystem::path output;
-    bool check;
+    ArgsCommand command = ArgsCommand::none;
+    acul::string input, output;
+    bool compressed = false;
+    ConvertFormat format = ConvertFormat::raw;
 };
 
-std::pair<int, Args> parseArgs(int argc, char **argv)
+void parseShowCommand(Args &args, args::Subparser &parser)
 {
-    args::ArgumentParser parser("App3d Asset Tool");
+    args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
+    args::ValueFlag<std::string> input(parser, "path", "Input file", {'i', "input"}, args::Options::Required);
+    parser.Parse();
+    args.input = args::get(input).c_str();
+}
+
+void parseExtractCommand(Args &args, args::Subparser &parser)
+{
+    args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
+    args::ValueFlag<std::string> input(parser, "path", "Input file", {'i', "input"}, args::Options::Required);
+    args::ValueFlag<std::string> output(parser, "path", "Output file", {'o', "output"}, args::Options::Required);
+    parser.Parse();
+    args.input = args::get(input).c_str();
+    args.output = args::get(output).c_str();
+}
+
+struct __long
+{
+    char *__data;
+    size_t __size;
+    size_t padding;
+};
+
+void parseConvertCommand(Args &args, args::Subparser &parser)
+{
+    args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
+    args::ValueFlag<std::string> input(parser, "path", "Input file", {'i', "input"}, args::Options::Required);
+    args::ValueFlag<std::string> format(parser, "raw|json|image|scene", "File format", {"format"},
+                                        args::Options::Required);
+    args::ValueFlag<std::string> output(parser, "path", "Output file", {'o', "output"}, args::Options::Required);
+    args::Flag compressed(parser, "compressed", "Compressed", {"compressed"});
+    parser.Parse();
+    args.input = args::get(input).c_str();
+    args.output = args::get(output).c_str();
+    std::string values[] = {"raw", "json", "image", "scene"};
+    auto it = std::find(std::begin(values), std::end(values), args::get(format));
+    if (it == std::end(values)) throw args::ValidationError("Invalid format");
+    args.format = static_cast<ConvertFormat>(std::distance(std::begin(values), it));
+    args.compressed = args::get(compressed);
+}
+
+bool parseArgs(int argc, char **argv, Args &args)
+{
+    args::ArgumentParser parser("UMBF Tool");
+    args::Group commands(parser, "Commands:", args::Group::Validators::Xor);
+    args::Command show(commands, "show", "Show UMBF file info",
+                       [&](args::Subparser &parser) { parseShowCommand(args, parser); });
+    args::Command extract(commands, "extract", "Extract UMBF file",
+                          [&](args::Subparser &parser) { parseExtractCommand(args, parser); });
+    args::Command convert(commands, "convert", "Convert UMBF file",
+                          [&](args::Subparser &parser) { parseConvertCommand(args, parser); });
+
     args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
     args::Flag version(parser, "version", "Show version", {'v', "version"}, args::Options::KickOut);
-
-    args::Group group(parser, "Source type:");
-    args::Flag image(group, "image", "Image", {"image"});
-    args::Flag scene(group, "scene", "Scene", {"scene"});
-    args::Flag json(group, "json", "JSON Configuration", {"json"});
-    args::Flag check(parser, "check", "Check asset file", {"check"});
-    args::ValueFlag<std::string> input(parser, "input", "Input file", {'i', "input"}, args::Options::Required);
-    args::ValueFlag<std::string> output(parser, "output", "Output file", {'o', "output"});
 
     try
     {
@@ -36,89 +94,118 @@ std::pair<int, Args> parseArgs(int argc, char **argv)
     catch (args::Help)
     {
         std::cout << parser;
-        return {RESULT_EXIT_SUCCESS, {}};
+        return true;
     }
     catch (args::ParseError e)
     {
         std::cerr << e.what() << std::endl;
-        std::cerr << parser;
-        return {RESULT_EXIT_FAILURE, {}};
+        return false;
     }
     catch (args::ValidationError e)
     {
-        std::cerr << e.what() << std::endl;
-        std::cerr << parser;
-        return {RESULT_EXIT_FAILURE, {}};
+        std::cerr << "Invalid usage.\nUse --help for usage information.\n";
+        return false;
     }
 
     if (version)
     {
         std::cout << "Version: 1.0.0" << std::endl;
-        return {RESULT_EXIT_SUCCESS, {}};
+        return true;
     }
 
-    if (!input)
-    {
-        std::cerr << "Error: --input is required" << std::endl;
-        std::cerr << parser;
-        return {RESULT_EXIT_FAILURE, {}};
-    }
-    bool isModeSelected = image || scene || json;
-    Args ret;
-    ret.mode = assettool::SaveMode::None;
-    ret.input = args::get(input);
-    ret.output = output ? args::get(output) : std::filesystem::path(ret.input.stem().string() + ".a3d");
-    ret.check = check;
-    if (!isModeSelected && !check)
-    {
-        std::cerr << "Error: Mode is required if not checking existing file." << std::endl;
-        std::cerr << parser;
-        return {RESULT_EXIT_FAILURE, {}};
-    }
-    else
-    {
-        if (image)
-            ret.mode = assettool::SaveMode::Image;
-        else if (scene)
-            ret.mode = assettool::SaveMode::Scene;
-        else if (json)
-            ret.mode = assettool::SaveMode::Json;
-    }
-
-    return {RESULT_CONTINUE, ret};
+    if (show)
+        args.command = ArgsCommand::show;
+    else if (extract)
+        args.command = ArgsCommand::extract;
+    else if (convert)
+        args.command = ArgsCommand::convert;
+    return true;
 }
 
 int main(int argc, char **argv)
 {
-    auto [result, args] = parseArgs(argc, argv);
-    if (result != RESULT_CONTINUE) return result;
+    Args args;
+    if (!parseArgs(argc, argv, args)) return 1;
+    if (args.command == ArgsCommand::none) return 0;
 
     task::ServiceDispatch sd;
-    logging::g_LogService = astl::alloc<logging::LogService>();
-    sd.registerService(logging::g_LogService);
-    logging::g_DefaultLogger = logging::g_LogService->addLogger<logging::ConsoleLogger>("app");
+    acul::log::g_LogService = acul::alloc<acul::log::LogService>();
+    sd.registerService(acul::log::g_LogService);
+    acul::log::g_DefaultLogger = acul::log::g_LogService->addLogger<acul::log::ConsoleLogger>("app");
 #ifdef NDEBUG
-    logging::g_LogService->level(logging::Level::Info);
+    acul::log::g_LogService->level(acul::log::Level::Info);
 #else
-    logging::g_LogService->level(logging::Level::Trace);
+    acul::log::g_LogService->level(acul::log::Level::Trace);
 #endif
-    logging::g_DefaultLogger->setPattern("%(color_auto)%(level_name)\t%(message)%(color_off)\n");
+    acul::log::g_DefaultLogger->setPattern("%(color_auto)%(message)%(color_off)\n");
 
-    // Assets meta
-    meta::initStreams({{meta::sign_block::external_block, &meta::streams::external_block},
-                       {assets::sign_block::image2D, &assets::streams::image2D},
-                       {assets::sign_block::image_atlas, &assets::streams::image_atlas},
-                       {assets::sign_block::scene, &assets::streams::scene},
-                       {assets::sign_block::mesh, &assets::streams::mesh},
-                       {assets::sign_block::material, &assets::streams::material},
-                       {assets::sign_block::material_info, &assets::streams::material_info},
-                       {assets::sign_block::target, &assets::streams::target},
-                       {assets::sign_block::library, &assets::streams::library}});
+    acul::meta::g_Streams = {{acul::meta::sign_block::raw_block, &acul::meta::streams::raw_block},
+                             {umbf::sign_block::meta::image2D, &umbf::streams::image2D},
+                             {umbf::sign_block::meta::image_atlas, &umbf::streams::image_atlas},
+                             {umbf::sign_block::meta::material, &umbf::streams::material},
+                             {umbf::sign_block::meta::material_info, &umbf::streams::material_info},
+                             {umbf::sign_block::meta::scene, &umbf::streams::scene},
+                             {umbf::sign_block::meta::mesh, &umbf::streams::mesh},
+                             {umbf::sign_block::meta::target, &umbf::streams::target},
+                             {umbf::sign_block::meta::library, &umbf::streams::library}};
 
-    assettool::App app(args.input, args.output, args.mode, args.check);
-    app.run();
+    bool success = false;
+    try
+    {
+        switch (args.command)
+        {
+            case ArgsCommand::show:
+                success = show_file(args.input);
+                break;
+            case ArgsCommand::extract:
+                success = extractFile(args.input, args.output);
+                break;
+            case ArgsCommand::convert:
+            {
+                u32 checksum = 0;
+                switch (args.format)
+                {
+                    case ConvertFormat::raw:
+                    {
+                        umbf::File file;
+                        if (convertRaw(args.input, args.compressed, file))
+                            checksum = file.save(args.output) ? file.checksum : 0;
+                        break;
+                    }
+                    case ConvertFormat::image:
+                    {
+                        umbf::File file;
+                        if (convertImage(args.input, args.compressed, file)) checksum = file.save(args.output);
+                        break;
+                    }
+                    case ConvertFormat::scene:
+                        checksum = convertScene(args.input, args.output, args.compressed);
+                        break;
+                    case ConvertFormat::json:
+                        checksum = convertJson(args.input, args.output, args.compressed);
+                        break;
+                    default:
+                        break;
+                }
+                if (checksum != 0)
+                {
+                    logInfo("Success. Checksum: %u", checksum);
+                    success = true;
+                }
+                else
+                    logError("Failed to convert file to %s", args.output.c_str());
+            }
+            break;
+            default:
+                return 1;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        logError("%s", e.what());
+        success = false;
+    }
 
-    meta::clearStreams();
-    logging::g_LogService->await();
-    return app.statusCode();
+    acul::log::g_LogService->await();
+    return success ? 0 : 1;
 }

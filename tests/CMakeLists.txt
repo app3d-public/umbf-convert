@@ -1,6 +1,6 @@
-set(ASSETTOOL_INPUT "data")
-set(ASSETTOOL_INPUT_BUILD "${CMAKE_CURRENT_BINARY_DIR}/data/input")
-set(ASSETTOOL_OUTPUT_BUILD "${CMAKE_CURRENT_BINARY_DIR}/data/output")
+set(UMBFTOOL_INPUT "data")
+set(UMBFTOOL_INPUT_BUILD "${CMAKE_CURRENT_BINARY_DIR}/data/input")
+set(UMBFTOOL_OUTPUT_BUILD "${CMAKE_CURRENT_BINARY_DIR}/data/output")
 
 file(MAKE_DIRECTORY ${ASSETTOOL_OUTPUT_BUILD})
 
@@ -21,15 +21,16 @@ set(JSON_FILES
 )
 
 foreach(FILENAME ${JSON_FILES})
-    configure_file(${ASSETTOOL_INPUT}/${FILENAME}.json.in 
-                   ${ASSETTOOL_INPUT_BUILD}/${FILENAME}.json 
+    configure_file(${UMBFTOOL_INPUT}/${FILENAME}.json.in 
+                   ${UMBFTOOL_INPUT_BUILD}/${FILENAME}.json 
                    @ONLY)
 
-    add_test(NAME assettool_${FILENAME}
-        COMMAND $<TARGET_FILE:assettool>
-                -i ${ASSETTOOL_INPUT_BUILD}/${FILENAME}.json 
-                -o ${ASSETTOOL_OUTPUT_BUILD}/${FILENAME}.a3d 
-                --json
-                --check)
-    set_tests_properties(assettool_${FILENAME} PROPERTIES LABELS "assettool")
+    add_test(NAME umbftool_${FILENAME}
+        COMMAND $<TARGET_FILE:umbftool>
+                convert
+                -i ${UMBFTOOL_INPUT_BUILD}/${FILENAME}.json 
+                -o ${UMBFTOOL_OUTPUT_BUILD}/${FILENAME}.umbf
+                --format=json
+                )
+    set_tests_properties(umbftool_${FILENAME} PROPERTIES LABELS "umbftool")
 endforeach()

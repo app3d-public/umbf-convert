@@ -2,12 +2,10 @@
     "type": "scene",
     "meshes": [
         {
-            "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj",
-            "format": "obj"
+            "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj"
         }
     ],
     "textures": [],
     "materials": [],
-    "format": "obj",
     "compress": true
 }

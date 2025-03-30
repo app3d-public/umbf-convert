@@ -3,9 +3,7 @@
     "textures": [
         {
             "type": "target",
-            "proto": "file",
-            "url": "texture.a3d",
-            "cache_path": "@CMAKE_CURRENT_BINARY_DIR@/data/output/texture.a3d",
+            "url": "texture.umia",
             "target_type": "image",
             "target_compress": true
         }
@@ -17,6 +15,6 @@
             1
         ],
         "textured": true,
-        "textureID": 0
+        "texture_id": 0
     }
 }

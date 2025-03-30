@@ -1,284 +1,412 @@
-#include "convert.hpp"
+#include <acul/io/file.hpp>
+#include <acul/log.hpp>
 #include <assets/utils.hpp>
-#include <core/event.hpp>
-#include <core/log.hpp>
+#include <ecl/image/import.hpp>
 #include <ecl/scene/obj/import.hpp>
-#include "models/asset.hpp"
+#include <rapidjson/document.h>
+#include <umbf/version.h>
+#include "models/umbf.hpp"
 
-namespace assettool
+inline void createFileStructure(umbf::File &file, u16 type_sign, bool compressed)
 {
-    ImageResource::ImageResource(const std::filesystem::path &path)
-        : _importer(ecl::image::getImporterByPath(path)), _valid(false)
-    {
-        astl::vector<assets::Image2D> images;
-        if (_importer && _importer->load(path, images) == io::file::ReadState::Success)
-        {
-            _image = images.front();
-            _valid = true;
-        }
-    }
+    file.header.vendor_sign = UMBF_VENDOR_ID;
+    file.header.vendor_version = UMBF_VERSION;
+    file.header.spec_version = UMBF_VERSION;
+    file.header.type_sign = type_sign;
+    file.header.compressed = compressed;
+}
 
-    astl::shared_ptr<assets::Image2D> modelToImage2D(const astl::shared_ptr<models::Image2D> &src,
-                                                     astl::vector<ImageResource> &resources)
+bool convertRaw(const acul::string &input, bool compressed, umbf::File &file)
+{
+    createFileStructure(file, umbf::sign_block::format::raw, compressed);
+    acul::vector<char> data;
+    auto res = acul::io::file::read_binary(input, data);
+    if (res != acul::io::file::op_state::success) return false;
+    auto block = acul::make_shared<acul::meta::raw_block>();
+    block->data = acul::alloc_n<char>(data.size());
+    memcpy(block->data, data.data(), data.size());
+    block->dataSize = data.size();
+    file.blocks.push_back(block);
+    return true;
+}
+
+bool convertImage(const acul::string &input, bool compressed, umbf::File &file)
+{
+    auto importer = ecl::image::getImporterByPath(input);
+    acul::vector<umbf::Image2D> images;
+    umbf::Image2D *pImage = nullptr;
+    bool ret = false;
+    if (importer && importer->load(input, images) == acul::io::file::op_state::success)
     {
-        logInfo("Loading image: %s", src->path().string().c_str());
-        ImageResource imageResource(src->path());
-        if (!imageResource.valid())
+        pImage = &images.front();
+        createFileStructure(file, umbf::sign_block::format::image, compressed);
+        file.blocks.push_back(acul::make_shared<umbf::Image2D>(*pImage));
+        ret = true;
+    }
+    acul::release(importer);
+    return ret;
+}
+
+acul::shared_ptr<umbf::Image2D> modelToImage(const models::IPath &model)
+{
+    auto importer = ecl::image::getImporterByPath(model.path());
+    acul::vector<umbf::Image2D> images;
+    acul::shared_ptr<umbf::Image2D> pImage;
+    if (importer && importer->load(model.path(), images) == acul::io::file::op_state::success)
+        pImage = acul::make_shared<umbf::Image2D>(images.front());
+    acul::release(importer);
+    return pImage;
+}
+
+bool convertAtlas(const models::Atlas &atlas, bool compressed, umbf::File &file)
+{
+    createFileStructure(file, umbf::sign_block::format::image, compressed);
+    auto image_block = acul::make_shared<umbf::Image2D>();
+    image_block->width = atlas.width();
+    image_block->height = atlas.height();
+    image_block->bytesPerChannel = atlas.bytesPerChannel();
+    image_block->channelCount = 4;
+    image_block->channelNames = {"Red", "Green", "Blue", "Alpha"};
+    image_block->imageFormat = atlas.imageFormat();
+
+    auto atlas_block = acul::make_shared<umbf::Atlas>();
+    atlas_block->padding = 1;
+    atlas_block->discardStep = atlas.precision();
+    acul::vector<acul::shared_ptr<umbf::Image2D>> atlas_dst_images;
+    atlas_dst_images.reserve(atlas.images().size());
+    for (const auto &image : atlas.images())
+    {
+        auto pImage = modelToImage(*image);
+        if (!pImage)
         {
-            logError("Failed to load image: %s", src->path().string().c_str());
+            logError("Failed to create image: %s", image->path().c_str());
+            return false;
+        }
+        if (pImage->channelCount != image_block->channelCount ||
+            pImage->bytesPerChannel != image_block->bytesPerChannel || pImage->imageFormat != image_block->imageFormat)
+        {
+            logInfo("Converting image to the atlas format: %s", image->path().c_str());
+            void *converted = umbf::utils::convertImage(*pImage, image_block->imageFormat, image_block->channelCount);
+            pImage->pixels = converted;
+            pImage->bytesPerChannel = image_block->bytesPerChannel;
+            pImage->channelCount = image_block->channelCount;
+            pImage->imageFormat = image_block->imageFormat;
+        }
+        atlas_dst_images.push_back(pImage);
+        atlas_block->packData.emplace_back(rectpack2D::rect_xywh(0, 0, pImage->width + 2 * atlas_block->padding,
+                                                                 pImage->height + 2 * atlas_block->padding));
+    }
+    if (!umbf::packAtlas(std::max(image_block->width, image_block->height), atlas.precision(),
+                         rectpack2D::flipping_option::DISABLED, atlas_block->packData))
+    {
+        logError("Failed to pack atlas");
+        return false;
+    }
+    umbf::fillAtlasPixels(image_block, atlas_block, atlas_dst_images);
+
+    file.blocks.push_back(image_block);
+    file.blocks.push_back(atlas_block);
+
+    return true;
+}
+
+bool convertImage(const models::Image &image, bool compressed, umbf::File &file)
+{
+    if (image.signature() == umbf::sign_block::meta::image2D)
+    {
+        auto serializer = acul::static_pointer_cast<models::IPath>(image.serializer());
+        return convertImage(serializer->path(), compressed, file);
+    }
+    else if (image.signature() == umbf::sign_block::meta::image_atlas)
+    {
+        auto serializer = acul::static_pointer_cast<models::Atlas>(image.serializer());
+        return convertAtlas(*serializer, compressed, file);
+    }
+    logError("Unsupported image type: %x", image.signature());
+    return false;
+}
+
+void convertTarget(const models::Target &target, bool compressed, umbf::File &file)
+{
+    createFileStructure(file, umbf::sign_block::format::target, compressed);
+    auto block = acul::make_shared<umbf::Target>();
+    block->url = target.url();
+    block->header = target.header();
+    block->checksum = target.checksum();
+    file.blocks.push_back(block);
+}
+
+bool convertImage(const acul::shared_ptr<models::UMBFRoot> &model, bool compressed, umbf::File &file)
+{
+    switch (model->type_sign)
+    {
+        case umbf::sign_block::format::image:
+        {
+            auto image_model = acul::static_pointer_cast<models::Image>(model);
+            return convertImage(*image_model, compressed, file);
+        }
+        case umbf::sign_block::format::target:
+        {
+            auto target_model = acul::static_pointer_cast<models::Target>(model);
+            convertTarget(*target_model, compressed, file);
+            return true;
+        }
+        default:
+            logError("Unsupported texture type: %x", model->type_sign);
+            return false;
+    }
+}
+
+bool convertMaterial(const models::Material &material, bool compressed, umbf::File &file)
+{
+    createFileStructure(file, umbf::sign_block::format::material, compressed);
+    auto block = acul::make_shared<umbf::Material>();
+    block->albedo = material.albedo();
+    for (auto &texture : material.textures())
+    {
+        umbf::File texture_file;
+        if (convertImage(texture, compressed, texture_file))
+            block->textures.push_back(texture_file);
+        else
+            return false;
+    }
+    file.blocks.push_back(block);
+    return true;
+}
+
+acul::unique_ptr<ecl::scene::ILoader> importMesh(const acul::string &input, events::Manager &e)
+{
+    auto ext = acul::io::get_extension(input);
+    if (ext == ".obj")
+    {
+        auto obj_loader = acul::make_unique<ecl::scene::obj::Importer>(input);
+        ecl::scene::obj::Importer importer(input);
+        if (importer.load(e) != acul::io::file::op_state::success)
+        {
+            logError("Failed to load obj: %s", importer.path().c_str());
             return nullptr;
         }
-        logInfo("Converting image to asset");
-        auto image = astl::make_shared<assets::Image2D>(imageResource.image());
-        resources.push_back(std::move(imageResource));
-        return image;
+        return std::move(obj_loader);
+    }
+    logError("Unsupported mesh format: %s", ext.c_str());
+    return nullptr;
+}
+
+u32 convertScene(const acul::string &input, const acul::string &output, bool compressed)
+{
+    events::Manager e;
+    auto importer = importMesh(input, e);
+    if (!importer) return 0;
+
+    umbf::File file;
+    createFileStructure(file, umbf::sign_block::format::scene, compressed);
+
+    auto block = acul::make_shared<umbf::Scene>();
+    block->objects = importer->objects();
+    block->materials.reserve(importer->materials().size());
+    for (auto &material : importer->materials()) block->materials.push_back(*material);
+    auto &textures = importer->textures();
+    block->textures.resize(textures.size());
+    for (int i = 0; i < textures.size(); ++i)
+    {
+        createFileStructure(block->textures[i], umbf::sign_block::format::target, false);
+        block->textures[i].blocks.push_back(textures[i]);
+    }
+    file.blocks.push_back(block);
+    return file.save(output) ? file.checksum : 0;
+}
+
+bool convertScene(models::Scene &scene, bool compressed, umbf::File &file)
+{
+    events::Manager e;
+    createFileStructure(file, umbf::sign_block::format::scene, compressed);
+    auto scene_block = acul::make_shared<umbf::Scene>();
+    scene_block->objects.reserve(scene.meshes().size());
+    acul::vector<acul::vector<u64>> materials_ids(scene.materials().size());
+    for (auto &mesh : scene.meshes())
+    {
+        auto importer = importMesh(mesh->path(), e);
+        if (!importer) return false;
+        for (auto &object : importer->objects())
+        {
+            scene_block->objects.push_back(object);
+            if (mesh->matID() != -1) materials_ids[mesh->matID()].push_back(object.id);
+        }
+    }
+    file.blocks.push_back(scene_block);
+    for (auto &texture : scene.textures())
+    {
+        umbf::File texture_file;
+        if (convertImage(texture, compressed, texture_file))
+            scene_block->textures.push_back(texture_file);
+        else
+            return false;
     }
 
-    astl::shared_ptr<meta::Block> modelToImageAtlas(const astl::shared_ptr<models::Atlas> &src,
-                                                    astl::vector<ImageResource> &resources)
+    for (int i = 0; i < scene.materials().size(); ++i)
     {
-        auto atlas = astl::make_shared<assets::Atlas>();
-        atlas->width = src->width();
-        atlas->height = src->height();
-        atlas->bytesPerChannel = src->bytesPerChannel();
-        atlas->channelCount = 4;
-        atlas->channelNames = {"Red", "Green", "Blue", "Alpha"};
-        atlas->imageFormat = src->imageFormat();
-        atlas->padding = 1;
-        std::vector<assets::Atlas::Rect> rects;
-        for (const auto &image : src->images())
+        auto &material = scene.materials()[i];
+        umbf::File material_file;
+        if (material.asset->type_sign == umbf::sign_block::format::material)
         {
-            auto texture2D = modelToImage2D(image, resources);
-            if (!texture2D) continue;
-            if (texture2D->channelCount != atlas->channelCount ||
-                texture2D->bytesPerChannel != atlas->bytesPerChannel || texture2D->imageFormat != atlas->imageFormat)
-            {
-                logInfo("Converting image to the atlas format: %s", image->path().string().c_str());
-                void *converted = assets::utils::convertImage(*texture2D, atlas->imageFormat, atlas->channelCount);
-                texture2D->pixels = converted;
-                texture2D->bytesPerChannel = atlas->bytesPerChannel;
-                texture2D->channelCount = atlas->channelCount;
-                texture2D->imageFormat = atlas->imageFormat;
-            }
-            atlas->images.push_back(texture2D);
-            rects.emplace_back(rectpack2D::rect_xywh(0, 0, texture2D->width + 2 * atlas->padding,
-                                                     texture2D->height + 2 * atlas->padding));
+            auto material_model = acul::static_pointer_cast<models::Material>(material.asset);
+            if (!convertMaterial(*material_model, compressed, material_file)) return false;
         }
-        if (!assets::packAtlas(std::max(atlas->width, atlas->height), src->precision(),
-                               rectpack2D::flipping_option::DISABLED, rects))
+        else if (material.asset->type_sign == umbf::sign_block::format::target)
         {
-            logError("Failed to pack atlas");
-            return nullptr;
-        }
-        atlas->discardStep = src->precision();
-        atlas->packData = rects;
-        return atlas;
-    }
-
-    astl::shared_ptr<meta::Block> modelToImage(const astl::shared_ptr<models::Image> &src,
-                                               astl::vector<ImageResource> &resources)
-    {
-        if (src->signature() == assets::sign_block::image_atlas)
-        {
-            auto serializer = astl::static_pointer_cast<models::Atlas>(src->serializer());
-            return modelToImageAtlas(serializer, resources);
-        }
-        else if (src->signature() == assets::sign_block::image2D)
-        {
-            auto serializer = astl::static_pointer_cast<models::Image2D>(src->serializer());
-            return modelToImage2D(serializer, resources);
+            auto target_model = acul::static_pointer_cast<models::Target>(material.asset);
+            convertTarget(*target_model, compressed, material_file);
         }
         else
-            return nullptr;
+        {
+            logError("Unsupported material type: %x", material.asset->type_sign);
+            return false;
+        }
+        auto mat_info = acul::make_shared<umbf::MaterialInfo>();
+        mat_info->name = material.name;
+        mat_info->id = acul::IDGen()();
+        for (auto &id : materials_ids[i]) mat_info->assignments.push_back(id);
+        material_file.blocks.push_back(mat_info);
+        scene_block->materials.push_back(material_file);
     }
 
-    astl::shared_ptr<assets::Target> modelToTarget(models::Target &src, astl::vector<ImageResource> &images)
+    return true;
+}
+
+void prepareLibraryNode(const models::FileNode &src, umbf::Library::Node &dst)
+{    
+    if (src.children.empty())
     {
-        auto target = astl::make_shared<assets::Target>();
-        target->addr = src.addr();
-        target->header = src.header();
-        target->checksum = src.checksum();
-        return target;
-    }
-
-    astl::shared_ptr<assets::Asset> modelToImageAny(astl::shared_ptr<models::AssetBase> &src,
-                                                    astl::vector<ImageResource> &resources)
-    {
-        if (!src)
-        {
-            logError("Source asset cannot be a null pointer");
-            return nullptr;
-        }
-        astl::shared_ptr<meta::Block> block;
-        switch (src->assetInfo().type)
-        {
-            case assets::Type::Image:
-            {
-                block = modelToImage(astl::static_pointer_cast<models::Image>(src), resources);
-                break;
-            }
-            case assets::Type::Target:
-            {
-                block = modelToTarget(*astl::static_pointer_cast<models::Target>(src), resources);
-                break;
-            }
-            default:
-                logError("Invalid asset type");
-                return nullptr;
-        }
-        auto asset = astl::make_shared<assets::Asset>();
-        asset->header = src->assetInfo();
-        if (!block) return nullptr;
-        asset->blocks.push_back(block);
-        return asset;
-    }
-
-    astl::shared_ptr<assets::Material> modelToMaterial(const astl::shared_ptr<models::Material> &src,
-                                                       astl::vector<ImageResource> &resources)
-    {
-        auto material = astl::make_shared<assets::Material>();
-        for (auto &texture : src->textures())
-            if (auto asset = modelToImageAny(texture, resources)) material->textures.push_back(*asset);
-        material->albedo = src->albedo();
-        return material;
-    }
-
-    astl::shared_ptr<assets::Asset> modelToMaterialAny(astl::shared_ptr<models::AssetBase> &src,
-                                                       astl::vector<ImageResource> &resources, const std::string &name)
-    {
-        if (!src)
-        {
-            logError("Source asset cannot be a null pointer");
-            return nullptr;
-        }
-        auto asset = astl::make_shared<assets::Asset>();
-        switch (src->assetInfo().type)
-        {
-            case assets::Type::Material:
-            {
-                auto model = astl::static_pointer_cast<models::Material>(src);
-                asset->header = model->assetInfo();
-                if (auto material = modelToMaterial(model, resources))
-                {
-                    asset->blocks.push_back(material);
-                    if (name.length() > 0)
-                    {
-                        auto matInfo = astl::make_shared<assets::MaterialInfo>();
-                        matInfo->name = name;
-                        asset->blocks.push_back(matInfo);
-                    }
-                }
-                else
-                    return nullptr;
-                break;
-            }
-            case assets::Type::Target:
-            {
-                auto model = astl::static_pointer_cast<models::Target>(src);
-                auto target = modelToTarget(*model, resources);
-                if (!target) return nullptr;
-                asset->blocks.push_back(target);
-                asset->header = model->assetInfo();
-                break;
-            }
-            default:
-                logError("Invalid asset type");
-                return nullptr;
-        }
-        return asset;
-    }
-
-    astl::shared_ptr<assets::Scene> modelToScene(models::Scene &sceneInfo, astl::vector<ImageResource> &images)
-    {
-        auto scene = astl::make_shared<assets::Scene>();
-        for (int i = 0; i < sceneInfo.meshes().size(); i++)
-        {
-            auto &mesh = sceneInfo.meshes()[i];
-            events::Manager e;
-            switch (mesh->format())
-            {
-                case models::Mesh::Format::Obj:
-                {
-                    ecl::scene::obj::Importer importer(mesh->path());
-                    if (importer.load(e) != io::file::ReadState::Success)
-                    {
-                        logError("Failed to load obj: %ls", mesh->path().c_str());
-                        return nullptr;
-                    }
-                    for (auto &object : importer.objects()) scene->objects.push_back(object);
-                    break;
-                }
-                default:
-                    logError("Unsupported scene format");
-                    return nullptr;
-            }
-        }
-
-        astl::vector<ImageResource> imageResources{};
-        for (auto &texture : sceneInfo.textures())
-            if (auto asset = modelToImageAny(texture, imageResources)) scene->textures.push_back(*asset);
-
-        for (auto &material : sceneInfo.materials())
-            if (auto asset = modelToMaterialAny(material.asset, imageResources, material.name))
-                scene->materials.push_back(*asset);
-
-        return scene;
-    }
-
-    void prepareNodeByModel(const models::FileNode &src, assets::Library::Node &dst,
-                            astl::vector<ImageResource> &resources)
-    {
-        if (src.children.empty())
-        {
-            if (src.isFolder)
-            {
-                dst.name = src.name;
-                dst.isFolder = true;
-            }
-            else
-            {
-                astl::shared_ptr<meta::Block> block;
-                switch (src.asset->assetInfo().type)
-                {
-                    case assets::Type::Image:
-                    {
-                        block = modelToImage(astl::static_pointer_cast<models::Image>(src.asset), resources);
-                        break;
-                    }
-                    case assets::Type::Material:
-                    {
-                        block = modelToMaterial(astl::static_pointer_cast<models::Material>(src.asset), resources);
-                        break;
-                    }
-                    case assets::Type::Scene:
-                    {
-                        block = modelToScene(*astl::static_pointer_cast<models::Scene>(src.asset), resources);
-                        break;
-                    }
-                    case assets::Type::Target:
-                    {
-                        block = modelToTarget(*astl::static_pointer_cast<models::Target>(src.asset), resources);
-                        break;
-                    }
-                    default:
-                        break;
-                }
-                if (!block) throw std::runtime_error("Failed to convert asset");
-                dst.name = src.name;
-                dst.asset.header = src.asset->assetInfo();
-                dst.asset.blocks.push_back(block);
-            }
-        }
-        else
+        if (src.isFolder)
         {
             dst.name = src.name;
             dst.isFolder = true;
-            for (const auto &child : src.children)
+        }
+        else
+        {
+            switch (src.asset->type_sign)
             {
-                assets::Library::Node node;
-                prepareNodeByModel(child, node, resources);
-                dst.children.push_back(node);
+                case umbf::sign_block::format::image:
+                    if (!convertImage(src.asset, false, dst.asset))
+                        throw acul::runtime_error("Failed to create asset file");
+                    break;
+                case umbf::sign_block::format::material:
+                    if (!convertMaterial(*acul::static_pointer_cast<models::Material>(src.asset), false, dst.asset))
+                        throw acul::runtime_error("Failed to create asset file");
+                    break;
+                case umbf::sign_block::format::scene:
+                    if (!convertScene(*acul::static_pointer_cast<models::Scene>(src.asset), false, dst.asset))
+                        throw acul::runtime_error("Failed to create asset file");
+                    break;
+                case umbf::sign_block::format::target:
+                    convertTarget(*acul::static_pointer_cast<models::Target>(src.asset), false, dst.asset);
+                    break;
+                case umbf::sign_block::format::raw:
+                    if (!convertRaw(acul::static_pointer_cast<models::IPath>(src.asset)->path(), false, dst.asset))
+                        throw acul::runtime_error("Failed to create asset file");
+                    break;
+                default:
+                    throw acul::runtime_error(acul::format("Unsupported asset type: %x", src.asset->type_sign));
+                    break;
             }
+            dst.name = src.name;
         }
     }
-} // namespace assettool
+    else
+    {
+        dst.name = src.name;
+        dst.isFolder = src.isFolder;
+        for (const auto &child : src.children)
+        {
+            umbf::Library::Node node;
+            prepareLibraryNode(child, node);
+            dst.children.push_back(node);
+        }
+    }
+}
+
+
+u32 convertLibrary(const models::Library &library, const acul::string &output, bool compressed)
+{
+    umbf::File file;
+    createFileStructure(file, umbf::sign_block::format::library, compressed);
+    auto block = acul::make_shared<umbf::Library>();
+    prepareLibraryNode(library.fileTree(), block->fileTree);
+    file.blocks.push_back(block);
+    return file.save(output) ? file.checksum : 0;
+}
+
+u32 convertJson(const acul::string &input, const acul::string &output, bool compressed)
+{
+    rapidjson::Document json;
+    models::UMBFRoot root;
+    if (!root.deserializeFromFile(input, json))
+    {
+        logError("Failed to load file: %s", input.c_str());
+        return 0;
+    }
+    switch (root.type_sign)
+    {
+        case umbf::sign_block::format::image:
+        {
+            models::Image image;
+            if (!image.deserializeObject(json))
+            {
+                logError("Failed to deserialize image: %s", input.c_str());
+                return 0;
+            }
+            umbf::File file;
+            if (!convertImage(image, compressed, file)) return 0;
+            return file.save(output) ? file.checksum : 0;
+        }
+        case umbf::sign_block::format::material:
+        {
+            models::Material material;
+            if (!material.deserializeObject(json))
+            {
+                logError("Failed to deserialize material: %s", input.c_str());
+                return 0;
+            }
+            umbf::File file;
+            if (!convertMaterial(material, compressed, file)) return 0;
+            return file.save(output) ? file.checksum : 0;
+        }
+        case umbf::sign_block::format::scene:
+        {
+            models::Scene scene;
+            if (!scene.deserializeObject(json))
+            {
+                logError("Failed to deserialize scene: %s", input.c_str());
+                return 0;
+            }
+            umbf::File file;
+            if (!convertScene(scene, compressed, file)) return 0;
+            return file.save(output) ? file.checksum : 0;
+        }
+        case umbf::sign_block::format::target:
+        {
+            models::Target target;
+            if (!target.deserializeObject(json))
+            {
+                logError("Failed to deserialize target: %s", input.c_str());
+                return 0;
+            }
+            umbf::File file;
+            convertTarget(target, compressed, file);
+            return file.save(output) ? file.checksum : 0;
+        }
+        case umbf::sign_block::format::library:
+        {
+            models::Library library;
+            if (!library.deserializeObject(json))
+            {
+                logError("Failed to deserialize library: %s", input.c_str());
+                return 0;
+            }
+            return convertLibrary(library, output, compressed);
+        }
+        default:
+            logError("Unsupported type: %x", root.type_sign);
+            return 0;
+    }
+}

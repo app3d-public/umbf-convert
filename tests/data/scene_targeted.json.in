@@ -4,18 +4,15 @@
     "meshes": [
         {
             "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj",
-            "format": "obj",
             "matID": 0
         }
     ],
     "textures": [],
     "materials": [
         {
-            "name": "mat:default:target",
+            "name": "material_targeted",
             "type": "target",
-            "proto": "file",
-            "url": "material_targeted.a3d",
-            "cache_path": "tests/material_targeted.a3d",
+            "url": "material_targeted.umm",
             "target_type": "material",
             "target_compress": true
         }

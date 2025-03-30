@@ -1,16 +1,15 @@
 cmake_minimum_required(VERSION 3.17)
-project(assettool
+project(umbftool
     VERSION 0.0.1
     LANGUAGES CXX C
-    DESCRIPTION "App3d Asset Tool")
+    DESCRIPTION "UMBF Tool")
 
-add_files(assettool RECURSE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}" RECURSE)
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
-add_executable(assettool ${SOURCE_FILES})
-
-target_link_libraries(assettool PRIVATE
-    app3d-core
-    app3d-assets
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    ${ACUL_LIB_NAME}
+    umbf
     app3d-ecl
 )
 
@@ -19,7 +18,7 @@ if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-set_target_properties(assettool
+set_target_properties(${PROJECT_NAME}
     PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED YES
@@ -30,8 +29,8 @@ set_target_properties(assettool
 if(WIN32)
     # Manifest
     gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
-        app3d-core:${app3d-core_VERSION}
-        app3d-assets:${app3d-assets_VERSION}
+        ${ACUL_LIB_NAME}:${acul_VERSION}
+        umbf:${umbf_VERSION}
         app3d-ecl:${app3d-ecl_VERSION}
         vma:${vma_VERSION}
     )

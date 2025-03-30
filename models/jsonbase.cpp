@@ -1,34 +1,33 @@
 #include "jsonbase.hpp"
+#include <acul/map.hpp>
+#include <acul/string/sstream.hpp>
 #include <assets/asset.hpp>
-#include <astl/map.hpp>
 #include <fstream>
-#include <glm/glm.hpp>
-#include <sstream>
+#include <vulkan/vulkan.hpp>
 
 namespace models
 {
-    bool JsonBase::deserializeFromFile(const std::filesystem::path &path, rapidjson::Document &object)
+    bool JsonBase::deserializeFromFile(const acul::string &path, rapidjson::Document &object)
 
     {
-        std::ifstream stream(path);
+        std::ifstream stream(path.c_str());
         std::stringstream buffer;
         buffer << stream.rdbuf();
         stream.close();
 
-        return deserializeString(buffer.str(), object);
+        return deserializeString(buffer.str().c_str(), object);
     }
 
-    bool JsonBase::deserializeFromFile(const std::filesystem::path &path)
+    bool JsonBase::deserializeFromFile(const acul::string &path)
     {
         rapidjson::Document object;
         return deserializeFromFile(path, object);
     }
 
-    bool JsonBase::initDocument(const std::string &s, rapidjson::Document &doc)
+    bool JsonBase::initDocument(const acul::string &s, rapidjson::Document &doc)
     {
         if (s.empty()) return false;
-        std::string validJson(s);
-        return !doc.Parse(validJson.c_str()).HasParseError() ? true : false;
+        return !doc.Parse(s.c_str()).HasParseError() ? true : false;
     }
 
     template <>
@@ -37,10 +36,10 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsBool()) throw std::runtime_error("Field " + std::string(key) + " is not a bool");
+            if (!val.IsBool()) throw acul::runtime_error("Field " + acul::string(key) + " is not a bool");
             return val.GetBool();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return false;
     }
 
@@ -50,10 +49,10 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsInt()) throw std::runtime_error("Field " + std::string(key) + " is not an int");
+            if (!val.IsInt()) throw acul::runtime_error("Field " + acul::string(key) + " is not an int");
             return val.GetInt();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return 0;
     }
 
@@ -63,10 +62,10 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsInt64()) throw std::runtime_error("Field " + std::string(key) + " is not an i64");
+            if (!val.IsInt64()) throw acul::runtime_error("Field " + acul::string(key) + " is not an i64");
             return val.GetInt64();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return 0;
     }
 
@@ -76,10 +75,10 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsUint64()) throw std::runtime_error("Field " + std::string(key) + " is not an u64");
+            if (!val.IsUint64()) throw acul::runtime_error("Field " + acul::string(key) + " is not an u64");
             return val.GetUint64();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return 0;
     }
 
@@ -89,10 +88,10 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsFloat()) throw std::runtime_error("Field " + std::string(key) + " is not a float");
+            if (!val.IsFloat()) throw acul::runtime_error("Field " + acul::string(key) + " is not a float");
             return val.GetFloat();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return 0;
     }
 
@@ -102,23 +101,23 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsDouble()) throw std::runtime_error("Field " + std::string(key) + " is not a double");
+            if (!val.IsDouble()) throw acul::runtime_error("Field " + acul::string(key) + " is not a double");
             return val.GetDouble();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return 0;
     }
 
     template <>
-    std::string getField<std::string>(const rapidjson::Value &obj, const char *key, bool required)
+    acul::string getField<acul::string>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
+            if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
             return val.GetString();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return "";
     }
 
@@ -136,11 +135,11 @@ namespace models
         if (obj.HasMember(key))
         {
             const rapidjson::Value &val = obj[key];
-            if (!val.IsObject()) throw std::runtime_error("Field " + std::string(key) + " is not an object");
-            return val.GetObject();
+            if (!val.IsObject()) throw acul::runtime_error("Field " + acul::string(key) + " is not an object");
+            return val.GetObjectA();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
-        return emptyObject.GetObject();
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
+        return emptyObject.GetObjectA();
     }
 
     template <>
@@ -151,10 +150,10 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsArray()) throw std::runtime_error("Field " + std::string(key) + " is not an array");
+            if (!val.IsArray()) throw acul::runtime_error("Field " + acul::string(key) + " is not an array");
             return val.GetArray();
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return emptyArray.GetArray();
     }
 
@@ -165,45 +164,28 @@ namespace models
         return glm::vec3(vec3[0].GetFloat(), vec3[1].GetFloat(), vec3[2].GetFloat());
     }
 
-    template <>
-    assets::Type getField<assets::Type>(const rapidjson::Value &obj, const char *key, bool required)
+    u16 getFormatField(const rapidjson::Value &obj, const char *key)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
+            if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
             std::string str = val.GetString();
-            if (str == "material") return assets::Type::Material;
-            if (str == "image") return assets::Type::Image;
-            if (str == "scene") return assets::Type::Scene;
-            if (str == "target") return assets::Type::Target;
-            if (str == "library") return assets::Type::Library;
-            throw std::runtime_error("Field " + std::string(key) + " is not a valid asset type");
+            if (str == "material") return umbf::sign_block::format::material;
+            if (str == "image") return umbf::sign_block::format::image;
+            if (str == "scene") return umbf::sign_block::format::scene;
+            if (str == "target") return umbf::sign_block::format::target;
+            if (str == "library") return umbf::sign_block::format::library;
+            if (str == "raw") return umbf::sign_block::format::raw;
+            throw acul::runtime_error("Field " + acul::string(key) + " is not a valid asset type");
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
-        return assets::Type::Invalid;
+        throw acul::runtime_error("Missing field " + acul::string(key));
+        return umbf::sign_block::format::none;
     }
 
-    template <>
-    assets::Target::Addr::Proto getField<assets::Target::Addr::Proto>(const rapidjson::Value &obj, const char *key,
-                                                                      bool required)
+    vk::Format parseVkFormat(acul::string str)
     {
-        if (obj.HasMember(key))
-        {
-            auto &val = obj[key];
-            if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
-            std::string str = val.GetString();
-            if (str == "file") return assets::Target::Addr::Proto::File;
-            if (str == "network") return assets::Target::Addr::Proto::Network;
-            throw std::runtime_error("Field " + std::string(key) + " is not a valid asset type");
-        }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
-        return assets::Target::Addr::Proto::Unknown;
-    }
-
-    vk::Format parseVkFormat(std::string str)
-    {
-        static const astl::map<std::string, vk::Format> formatMap = {
+        static const acul::map<acul::string, vk::Format> formatMap = {
             {"R8G8B8A8_UNORM", vk::Format::eR8G8B8A8Unorm},
             {"R8G8B8A8_SNORM", vk::Format::eR8G8B8A8Snorm},
             {"R8G8B8A8_SRGB", vk::Format::eR8G8B8A8Srgb},
@@ -222,7 +204,7 @@ namespace models
             {"B8G8R8A8_SNORM", vk::Format::eB8G8R8A8Snorm}};
         std::transform(str.begin(), str.end(), str.begin(), ::toupper);
         auto it = formatMap.find(str);
-        if (it == formatMap.end()) throw std::runtime_error("Unknown format: " + str);
+        if (it == formatMap.end()) throw acul::runtime_error("Unknown format: " + str);
         return it->second;
     }
 
@@ -232,10 +214,10 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
+            if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
             return parseVkFormat(val.GetString());
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return vk::Format::eUndefined;
     }
 
@@ -244,12 +226,12 @@ namespace models
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
-            if (!val.IsString()) throw std::runtime_error("Field " + std::string(key) + " is not a string");
-            if (val == "2D") return assets::sign_block::image2D;
-            if (val == "atlas") return assets::sign_block::image_atlas;
-            throw std::runtime_error("Field " + std::string(key) + " is not a valid texture type");
+            if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
+            if (val == "2D") return umbf::sign_block::meta::image2D;
+            if (val == "atlas") return umbf::sign_block::meta::image_atlas;
+            throw acul::runtime_error("Field " + acul::string(key) + " is not a valid texture type");
         }
-        if (required) throw std::runtime_error("Missing field " + std::string(key));
+        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return 0;
     }
 } // namespace models

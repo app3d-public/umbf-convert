@@ -1,5 +1,5 @@
 {
-    "name": "test/testlib",
+    "name": "testlib",
     "type": "library",
     "children": [
         {
@@ -36,7 +36,7 @@
                                 1
                             ],
                             "textured": true,
-                            "textureID": 0
+                            "texture_id": 0
                         }
                     }
                 }
@@ -47,13 +47,12 @@
             "name": "meshes",
             "children": [
                 {
-                    "name": "testMesh",
+                    "name": "detail",
                     "asset": {
                         "type": "scene",
                         "meshes": [
                             {
-                                "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj",
-                                "format": "obj"
+                                "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj"
                             }
                         ],
                         "textures": [],
