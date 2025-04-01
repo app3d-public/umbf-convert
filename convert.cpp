@@ -1,9 +1,9 @@
 #include <acul/io/file.hpp>
 #include <acul/log.hpp>
-#include <assets/utils.hpp>
 #include <ecl/image/import.hpp>
 #include <ecl/scene/obj/import.hpp>
 #include <rapidjson/document.h>
+#include <umbf/utils.hpp>
 #include <umbf/version.h>
 #include "models/umbf.hpp"
 
@@ -25,7 +25,7 @@ bool convertRaw(const acul::string &input, bool compressed, umbf::File &file)
     auto block = acul::make_shared<acul::meta::raw_block>();
     block->data = acul::alloc_n<char>(data.size());
     memcpy(block->data, data.data(), data.size());
-    block->dataSize = data.size();
+    block->data_size = data.size();
     file.blocks.push_back(block);
     return true;
 }
@@ -174,14 +174,14 @@ bool convertMaterial(const models::Material &material, bool compressed, umbf::Fi
     return true;
 }
 
-acul::unique_ptr<ecl::scene::ILoader> importMesh(const acul::string &input, events::Manager &e)
+acul::unique_ptr<ecl::scene::ILoader> importMesh(const acul::string &input, acul::events::dispatcher &ed)
 {
     auto ext = acul::io::get_extension(input);
     if (ext == ".obj")
     {
         auto obj_loader = acul::make_unique<ecl::scene::obj::Importer>(input);
         ecl::scene::obj::Importer importer(input);
-        if (importer.load(e) != acul::io::file::op_state::success)
+        if (importer.load(ed) != acul::io::file::op_state::success)
         {
             logError("Failed to load obj: %s", importer.path().c_str());
             return nullptr;
@@ -194,8 +194,8 @@ acul::unique_ptr<ecl::scene::ILoader> importMesh(const acul::string &input, even
 
 u32 convertScene(const acul::string &input, const acul::string &output, bool compressed)
 {
-    events::Manager e;
-    auto importer = importMesh(input, e);
+    acul::events::dispatcher ed;
+    auto importer = importMesh(input, ed);
     if (!importer) return 0;
 
     umbf::File file;
@@ -218,14 +218,14 @@ u32 convertScene(const acul::string &input, const acul::string &output, bool com
 
 bool convertScene(models::Scene &scene, bool compressed, umbf::File &file)
 {
-    events::Manager e;
+    acul::events::dispatcher ed;
     createFileStructure(file, umbf::sign_block::format::scene, compressed);
     auto scene_block = acul::make_shared<umbf::Scene>();
     scene_block->objects.reserve(scene.meshes().size());
     acul::vector<acul::vector<u64>> materials_ids(scene.materials().size());
     for (auto &mesh : scene.meshes())
     {
-        auto importer = importMesh(mesh->path(), e);
+        auto importer = importMesh(mesh->path(), ed);
         if (!importer) return false;
         for (auto &object : importer->objects())
         {
@@ -264,7 +264,7 @@ bool convertScene(models::Scene &scene, bool compressed, umbf::File &file)
         }
         auto mat_info = acul::make_shared<umbf::MaterialInfo>();
         mat_info->name = material.name;
-        mat_info->id = acul::IDGen()();
+        mat_info->id = acul::id_gen()();
         for (auto &id : materials_ids[i]) mat_info->assignments.push_back(id);
         material_file.blocks.push_back(mat_info);
         scene_block->materials.push_back(material_file);
@@ -274,7 +274,7 @@ bool convertScene(models::Scene &scene, bool compressed, umbf::File &file)
 }
 
 void prepareLibraryNode(const models::FileNode &src, umbf::Library::Node &dst)
-{    
+{
     if (src.children.empty())
     {
         if (src.isFolder)
@@ -324,7 +324,6 @@ void prepareLibraryNode(const models::FileNode &src, umbf::Library::Node &dst)
         }
     }
 }
-
 
 u32 convertLibrary(const models::Library &library, const acul::string &output, bool compressed)
 {

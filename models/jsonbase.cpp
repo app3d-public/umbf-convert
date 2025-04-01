@@ -1,8 +1,8 @@
 #include "jsonbase.hpp"
 #include <acul/map.hpp>
 #include <acul/string/sstream.hpp>
-#include <assets/asset.hpp>
 #include <fstream>
+#include <umbf/umbf.hpp>
 #include <vulkan/vulkan.hpp>
 
 namespace models
@@ -11,7 +11,7 @@ namespace models
 
     {
         std::ifstream stream(path.c_str());
-        std::stringstream buffer;
+        acul::stringstream buffer;
         buffer << stream.rdbuf();
         stream.close();
 
@@ -170,7 +170,7 @@ namespace models
         {
             auto &val = obj[key];
             if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
-            std::string str = val.GetString();
+            acul::string str = val.GetString();
             if (str == "material") return umbf::sign_block::format::material;
             if (str == "image") return umbf::sign_block::format::image;
             if (str == "scene") return umbf::sign_block::format::scene;

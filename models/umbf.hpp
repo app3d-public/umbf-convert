@@ -1,6 +1,6 @@
 #pragma once
 
-#include <assets/asset.hpp>
+#include <umbf/umbf.hpp>
 #include "jsonbase.hpp"
 
 namespace models

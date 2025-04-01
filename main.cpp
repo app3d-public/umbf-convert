@@ -1,7 +1,7 @@
 #include <acul/log.hpp>
 #include <acul/meta.hpp>
 #include <args/args.hxx>
-#include <assets/asset.hpp>
+#include <umbf/umbf.hpp>
 #include "convert.hpp"
 #include "extract.hpp"
 #include "show.hpp"
@@ -128,26 +128,26 @@ int main(int argc, char **argv)
     if (!parseArgs(argc, argv, args)) return 1;
     if (args.command == ArgsCommand::none) return 0;
 
-    task::ServiceDispatch sd;
-    acul::log::g_LogService = acul::alloc<acul::log::LogService>();
-    sd.registerService(acul::log::g_LogService);
-    acul::log::g_DefaultLogger = acul::log::g_LogService->addLogger<acul::log::ConsoleLogger>("app");
+    acul::task::service_dispatch sd;
+    acul::log::log_service *log_service = acul::alloc<acul::log::log_service>();
+    sd.register_service(log_service);
+    auto *app_log = log_service->add_logger<acul::log::console_logger>("app");
 #ifdef NDEBUG
-    acul::log::g_LogService->level(acul::log::Level::Info);
+    log_service->level = acul::log::level::info;
 #else
-    acul::log::g_LogService->level(acul::log::Level::Trace);
+    log_service->level = acul::log::level::trace;
 #endif
-    acul::log::g_DefaultLogger->setPattern("%(color_auto)%(message)%(color_off)\n");
+    app_log->set_pattern("%(color_auto)%(message)%(color_off)\n");
 
-    acul::meta::g_Streams = {{acul::meta::sign_block::raw_block, &acul::meta::streams::raw_block},
-                             {umbf::sign_block::meta::image2D, &umbf::streams::image2D},
-                             {umbf::sign_block::meta::image_atlas, &umbf::streams::image_atlas},
-                             {umbf::sign_block::meta::material, &umbf::streams::material},
-                             {umbf::sign_block::meta::material_info, &umbf::streams::material_info},
-                             {umbf::sign_block::meta::scene, &umbf::streams::scene},
-                             {umbf::sign_block::meta::mesh, &umbf::streams::mesh},
-                             {umbf::sign_block::meta::target, &umbf::streams::target},
-                             {umbf::sign_block::meta::library, &umbf::streams::library}};
+    acul::meta::registered_streams = {{acul::meta::sign_block::raw_block, &acul::meta::streams::raw_block},
+                                      {umbf::sign_block::meta::image2D, &umbf::streams::image2D},
+                                      {umbf::sign_block::meta::image_atlas, &umbf::streams::image_atlas},
+                                      {umbf::sign_block::meta::material, &umbf::streams::material},
+                                      {umbf::sign_block::meta::material_info, &umbf::streams::material_info},
+                                      {umbf::sign_block::meta::scene, &umbf::streams::scene},
+                                      {umbf::sign_block::meta::mesh, &umbf::streams::mesh},
+                                      {umbf::sign_block::meta::target, &umbf::streams::target},
+                                      {umbf::sign_block::meta::library, &umbf::streams::library}};
 
     bool success = false;
     try
@@ -206,6 +206,6 @@ int main(int argc, char **argv)
         success = false;
     }
 
-    acul::log::g_LogService->await();
+    log_service->await();
     return success ? 0 : 1;
 }

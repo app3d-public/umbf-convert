@@ -1,9 +1,9 @@
 #include <acul/io/file.hpp>
 #include <acul/io/path.hpp>
 #include <acul/log.hpp>
-#include <assets/asset.hpp>
 #include <ecl/image/export.hpp>
 #include <ecl/scene/obj/export.hpp>
+#include <umbf/umbf.hpp>
 
 bool extractRaw(const umbf::File *file, const acul::string &output)
 {
@@ -24,7 +24,7 @@ bool extractRaw(const umbf::File *file, const acul::string &output)
         logError("Failed to cast block to RawBlock");
         return false;
     }
-    return acul::io::file::write_binary(output, raw_block->data, raw_block->dataSize);
+    return acul::io::file::write_binary(output, raw_block->data, raw_block->data_size);
 }
 
 bool saveImage(const acul::string &output, const umbf::Image2D &image)

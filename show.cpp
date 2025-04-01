@@ -1,5 +1,5 @@
 #include <acul/log.hpp>
-#include <assets/asset.hpp>
+#include <umbf/umbf.hpp>
 
 bool printRaw(umbf::File *file)
 {
@@ -21,7 +21,7 @@ bool printRaw(umbf::File *file)
         logError("Failed to cast block to RawBlock");
         return false;
     }
-    logInfo("Data size: %zu", raw_block->dataSize);
+    logInfo("Data size: %zu", raw_block->data_size);
     return true;
 }
 
