@@ -138,17 +138,18 @@ int main(int argc, char **argv)
     log_service->level = acul::log::level::trace;
 #endif
     app_log->set_pattern("%(color_auto)%(message)%(color_off)\n");
-
-    acul::meta::registered_streams = {{acul::meta::sign_block::raw_block, &acul::meta::streams::raw_block},
-                                      {umbf::sign_block::meta::image2D, &umbf::streams::image2D},
-                                      {umbf::sign_block::meta::image_atlas, &umbf::streams::image_atlas},
-                                      {umbf::sign_block::meta::material, &umbf::streams::material},
-                                      {umbf::sign_block::meta::material_info, &umbf::streams::material_info},
-                                      {umbf::sign_block::meta::scene, &umbf::streams::scene},
-                                      {umbf::sign_block::meta::mesh, &umbf::streams::mesh},
-                                      {umbf::sign_block::meta::target, &umbf::streams::target},
-                                      {umbf::sign_block::meta::library, &umbf::streams::library}};
-
+    log_service->default_logger = app_log;
+    acul::meta::hash_resolver meta_resolver;
+    meta_resolver.streams = {{acul::meta::sign_block::raw_block, &acul::meta::streams::raw_block},
+                             {umbf::sign_block::meta::image2D, &umbf::streams::image2D},
+                             {umbf::sign_block::meta::image_atlas, &umbf::streams::image_atlas},
+                             {umbf::sign_block::meta::material, &umbf::streams::material},
+                             {umbf::sign_block::meta::material_info, &umbf::streams::material_info},
+                             {umbf::sign_block::meta::scene, &umbf::streams::scene},
+                             {umbf::sign_block::meta::mesh, &umbf::streams::mesh},
+                             {umbf::sign_block::meta::target, &umbf::streams::target},
+                             {umbf::sign_block::meta::library, &umbf::streams::library}};
+    acul::meta::resolver = &meta_resolver;
     bool success = false;
     try
     {

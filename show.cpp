@@ -280,6 +280,7 @@ bool show_file(const acul::string &path)
     logInfo("type sign: %x", file->header.type_sign);
     logInfo("compressed: %s", file->header.compressed ? "true" : "false");
     logInfo("checksum: %u", file->checksum);
+    if (file->header.vendor_sign != UMBF_VENDOR_ID) return true;
 
     switch (file->header.type_sign)
     {

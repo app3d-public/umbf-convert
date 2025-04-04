@@ -29,6 +29,7 @@ bool extractRaw(const umbf::File *file, const acul::string &output)
 
 bool saveImage(const acul::string &output, const umbf::Image2D &image)
 {
+    assert(image.pixels);
     switch (ecl::image::getTypeByExt(acul::io::get_extension(output)))
     {
         case ecl::image::Type::BMP:
@@ -256,6 +257,6 @@ bool extractFile(const acul::string &input, const acul::string &output)
             logError("Unsupported file type: %x", file->header.type_sign);
             break;
     }
-
+    if (!ret) logError("Failed to extract file: %s", input.c_str());
     return ret;
 }
