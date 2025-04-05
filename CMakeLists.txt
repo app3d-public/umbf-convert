@@ -9,7 +9,7 @@ add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     ${ACUL_LIB_NAME}
-    umbf
+    ${UMBF_LIB_NAME}
     app3d-ecl
 )
 
@@ -30,7 +30,7 @@ if(WIN32)
     # Manifest
     gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
         ${ACUL_LIB_NAME}:${acul_VERSION}
-        umbf:${umbf_VERSION}
+        ${UMBF_LIB_NAME}:${umbf_VERSION}
         app3d-ecl:${app3d-ecl_VERSION}
         vma:${vma_VERSION}
     )
