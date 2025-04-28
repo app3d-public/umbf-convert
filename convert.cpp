@@ -174,14 +174,14 @@ bool convertMaterial(const models::Material &material, bool compressed, umbf::Fi
     return true;
 }
 
-acul::unique_ptr<ecl::scene::ILoader> importMesh(const acul::string &input, acul::events::dispatcher &ed)
+acul::unique_ptr<ecl::scene::ILoader> importMesh(const acul::string &input)
 {
     auto ext = acul::io::get_extension(input);
     if (ext == ".obj")
     {
         auto obj_loader = acul::make_unique<ecl::scene::obj::Importer>(input);
         ecl::scene::obj::Importer importer(input);
-        if (importer.load(ed) != acul::io::file::op_state::success)
+        if (!importer.load())
         {
             logError("Failed to load obj: %s", importer.path().c_str());
             return nullptr;
@@ -194,8 +194,7 @@ acul::unique_ptr<ecl::scene::ILoader> importMesh(const acul::string &input, acul
 
 u32 convertScene(const acul::string &input, const acul::string &output, bool compressed)
 {
-    acul::events::dispatcher ed;
-    auto importer = importMesh(input, ed);
+    auto importer = importMesh(input);
     if (!importer) return 0;
 
     umbf::File file;
@@ -218,14 +217,13 @@ u32 convertScene(const acul::string &input, const acul::string &output, bool com
 
 bool convertScene(models::Scene &scene, bool compressed, umbf::File &file)
 {
-    acul::events::dispatcher ed;
     createFileStructure(file, umbf::sign_block::format::scene, compressed);
     auto scene_block = acul::make_shared<umbf::Scene>();
     scene_block->objects.reserve(scene.meshes().size());
     acul::vector<acul::vector<u64>> materials_ids(scene.materials().size());
     for (auto &mesh : scene.meshes())
     {
-        auto importer = importMesh(mesh->path(), ed);
+        auto importer = importMesh(mesh->path());
         if (!importer) return false;
         for (auto &object : importer->objects())
         {
