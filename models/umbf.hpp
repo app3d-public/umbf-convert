@@ -8,10 +8,10 @@ namespace models
     class UMBFRoot : public JsonBase
     {
     public:
-        u16 type_sign = umbf::sign_block::format::none;
+        u16 type_sign = umbf::sign_block::format::None;
 
-        UMBFRoot() : UMBFRoot(umbf::sign_block::format::none) {}
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        UMBFRoot() : UMBFRoot(umbf::sign_block::format::None) {}
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
     protected:
         UMBFRoot(u16 type) : type_sign(type) {}
@@ -21,7 +21,7 @@ namespace models
     {
     public:
         IPath(u16 type_id) : UMBFRoot(type_id) {}
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
         void path(const acul::string &path) { _path = path; }
         acul::string path() const { return _path; }
@@ -34,11 +34,11 @@ namespace models
     {
     public:
         explicit Image(const acul::shared_ptr<UMBFRoot> &serializer = nullptr, u32 signature = 0)
-            : UMBFRoot(umbf::sign_block::format::image), _signature(signature), _serializer(serializer)
+            : UMBFRoot(umbf::sign_block::format::Image), _signature(signature), _serializer(serializer)
         {
         }
 
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
         acul::shared_ptr<UMBFRoot> serializer() const { return _serializer; }
 
@@ -52,9 +52,9 @@ namespace models
     class Atlas final : public UMBFRoot
     {
     public:
-        explicit Atlas() : UMBFRoot(umbf::sign_block::format::image) {}
+        explicit Atlas() : UMBFRoot(umbf::sign_block::format::Image) {}
 
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
         const acul::vector<acul::shared_ptr<IPath>> &images() const { return _images; }
 
@@ -64,15 +64,15 @@ namespace models
 
         int precision() const { return _precision; }
 
-        vk::Format imageFormat() const { return _imageFormat; }
+        vk::Format format() const { return _format; }
 
-        u8 bytesPerChannel() const { return _bytesPerChannel; }
+        u8 bytes_per_channel() const { return _bytes_per_channel; }
 
     private:
         u64 _width;
         u64 _height;
-        u8 _bytesPerChannel;
-        vk::Format _imageFormat;
+        u8 _bytes_per_channel;
+        vk::Format _format;
         int _precision;
         acul::vector<acul::shared_ptr<IPath>> _images;
     };
@@ -80,34 +80,34 @@ namespace models
     class Material final : public UMBFRoot
     {
     public:
-        explicit Material() : UMBFRoot(umbf::sign_block::format::material) {}
+        explicit Material() : UMBFRoot(umbf::sign_block::format::Material) {}
         const acul::vector<acul::shared_ptr<UMBFRoot>> &textures() const { return _textures; }
 
-        umbf::MaterialNode albedo() const { return _albedoNode; }
+        umbf::MaterialNode albedo() const { return _albedo_node; }
 
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
     private:
         acul::vector<acul::shared_ptr<UMBFRoot>> _textures;
-        umbf::MaterialNode _albedoNode;
+        umbf::MaterialNode _albedo_node;
 
-        static void parseNodeInfo(const rapidjson::Value &nodeInfo, umbf::MaterialNode &node);
+        static void parse_node_info(const rapidjson::Value &nodeInfo, umbf::MaterialNode &node);
     };
 
     class Mesh final : public JsonBase
     {
     public:
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
         acul::string path() const { return _path; }
         void path(acul::string &path) { _path = path; }
 
-        int matID() const { return _matID; }
-        void matID(int matID) { _matID = matID; }
+        int mat_id() const { return _mat_id; }
+        void mat_id(int mat_id) { _mat_id = mat_id; }
 
     private:
         acul::string _path;
-        int _matID = -1;
+        int _mat_id = -1;
     };
 
     class Scene final : public UMBFRoot
@@ -119,7 +119,7 @@ namespace models
             acul::shared_ptr<UMBFRoot> asset;
         };
 
-        explicit Scene() : UMBFRoot(umbf::sign_block::format::scene) {}
+        explicit Scene() : UMBFRoot(umbf::sign_block::format::Scene) {}
 
         acul::vector<acul::shared_ptr<Mesh>> &meshes() { return _meshes; }
 
@@ -127,24 +127,24 @@ namespace models
 
         const acul::vector<MaterialNode> &materials() const { return _materials; }
 
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
     private:
         acul::vector<acul::shared_ptr<Mesh>> _meshes;
         acul::vector<acul::shared_ptr<UMBFRoot>> _textures;
         acul::vector<MaterialNode> _materials;
 
-        bool deserializeMeshes(const rapidjson::Value &obj);
-        bool deserializeTextures(const rapidjson::Value &obj);
-        bool deserializeMaterials(const rapidjson::Value &obj);
+        bool deserialize_meshes(const rapidjson::Value &obj);
+        bool deserialize_textures(const rapidjson::Value &obj);
+        bool deserialize_materials(const rapidjson::Value &obj);
     };
 
     class Target final : public UMBFRoot
     {
     public:
-        Target() : UMBFRoot(umbf::sign_block::format::target) {}
+        Target() : UMBFRoot(umbf::sign_block::format::Target) {}
 
-        virtual bool deserializeObject(const rapidjson::Value &obj) override;
+        virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
         acul::string url() const { return _url; }
 
@@ -162,24 +162,27 @@ namespace models
     {
         acul::string name;                // Name of the file node.
         acul::vector<FileNode> children;  // Child nodes of this file node.
-        bool isFolder{false};             // Flag indicating if the node is a folder.
+        bool is_folder{false};             // Flag indicating if the node is a folder.
         acul::shared_ptr<UMBFRoot> asset; // Shared pointer to the asset associated with the node.
     };
 
     class Library final : public UMBFRoot
     {
     public:
-        explicit Library() : UMBFRoot(umbf::sign_block::format::library) {}
+        explicit Library() : UMBFRoot(umbf::sign_block::format::Library) {}
 
-        virtual bool deserializeObject(const rapidjson::Value &obj) override { return parseFileTree(obj, _fileTree); }
+        virtual bool deserialize_object(const rapidjson::Value &obj) override
+        {
+            return parse_file_tree(obj, _file_tree);
+        }
 
-        const FileNode &fileTree() const { return _fileTree; }
+        const FileNode &file_tree() const { return _file_tree; }
 
     private:
-        FileNode _fileTree;
+        FileNode _file_tree;
 
-        static bool parseFileTree(const rapidjson::Value &obj, FileNode &node);
+        static bool parse_file_tree(const rapidjson::Value &obj, FileNode &node);
 
-        static acul::shared_ptr<UMBFRoot> parseAsset(const rapidjson::Value &obj, FileNode &node);
+        static acul::shared_ptr<UMBFRoot> parse_asset(const rapidjson::Value &obj, FileNode &node);
     };
 } // namespace models

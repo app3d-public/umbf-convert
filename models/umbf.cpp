@@ -4,34 +4,34 @@
 
 namespace models
 {
-    bool UMBFRoot::deserializeObject(const rapidjson::Value &obj)
+    bool UMBFRoot::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            type_sign = getFormatField(obj, "type");
+            type_sign = get_format_field(obj, "type");
         }
         catch (const std::exception &e)
         {
-            logError("Info header Deserialization error: %s", e.what());
+            LOG_ERROR("Info header Deserialization error: %s", e.what());
             return false;
         }
         return true;
     }
 
-    bool Image::deserializeObject(const rapidjson::Value &obj)
+    bool Image::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            _signature = getImageType(obj, "texture_type", false);
-            if (_signature == 0) _signature = umbf::sign_block::meta::image2D;
+            _signature = get_image_type(obj, "texture_type", false);
+            if (_signature == 0) _signature = umbf::sign_block::meta::Image2D;
             if (!_serializer)
             {
                 switch (_signature)
                 {
-                    case umbf::sign_block::meta::image2D:
-                        _serializer = acul::make_shared<IPath>(umbf::sign_block::format::image);
+                    case umbf::sign_block::meta::Image2D:
+                        _serializer = acul::make_shared<IPath>(umbf::sign_block::format::Image);
                         break;
-                    case umbf::sign_block::meta::image_atlas:
+                    case umbf::sign_block::meta::ImageAtlas:
                         _serializer = acul::make_shared<Atlas>();
                         break;
                     default:
@@ -39,312 +39,313 @@ namespace models
                 }
             }
             else
-                logInfo("Texture already deserialized");
-            return _serializer->deserializeObject(obj);
+                LOG_INFO("Texture already deserialized");
+            return _serializer->deserialize_object(obj);
         }
         catch (const std::exception &e)
         {
-            logError("Image Deserialization error: %s", e.what());
+            LOG_ERROR("Image Deserialization error: %s", e.what());
             return false;
         }
     }
 
-    bool IPath::deserializeObject(const rapidjson::Value &obj)
+    bool IPath::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            _path = getField<acul::string>(obj, "path");
+            _path = get_field<acul::string>(obj, "path");
         }
         catch (const std::exception &e)
         {
-            logError("IPath deserialization error: %s", e.what());
+            LOG_ERROR("IPath deserialization error: %s", e.what());
             return false;
         }
         return true;
     }
 
-    bool Atlas::deserializeObject(const rapidjson::Value &obj)
+    bool Atlas::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            _width = getField<u64>(obj, "width");
-            _height = getField<u64>(obj, "height");
-            _precision = getField<int>(obj, "precision");
-            _bytesPerChannel = getField<int>(obj, "bytesPerChannel");
-            _imageFormat = getField<vk::Format>(obj, "format");
-            for (const auto &image : getField<rapidjson::Value::ConstArray>(obj, "images"))
+            _width = get_field<u64>(obj, "width");
+            _height = get_field<u64>(obj, "height");
+            _precision = get_field<int>(obj, "precision");
+            _bytes_per_channel = get_field<int>(obj, "bytesPerChannel");
+            _format = get_field<vk::Format>(obj, "format");
+            for (const auto &image : get_field<rapidjson::Value::ConstArray>(obj, "images"))
             {
-                acul::shared_ptr<IPath> texture = acul::make_shared<IPath>(umbf::sign_block::format::image);
-                if (!texture->deserializeObject(image)) throw acul::runtime_error("Failed to deserialize image");
+                acul::shared_ptr<IPath> texture = acul::make_shared<IPath>(umbf::sign_block::format::Image);
+                if (!texture->deserialize_object(image)) throw acul::runtime_error("Failed to deserialize image");
                 _images.push_back(texture);
             }
         }
         catch (const std::exception &e)
         {
-            logError("Image atlas Deserialization error: %s", e.what());
+            LOG_ERROR("Image atlas Deserialization error: %s", e.what());
             return false;
         }
         return true;
     }
 
-    bool Material::deserializeObject(const rapidjson::Value &obj)
+    bool Material::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            for (const auto &texture : getField<rapidjson::Value::ConstArray>(obj, "textures"))
+            for (const auto &texture : get_field<rapidjson::Value::ConstArray>(obj, "textures"))
             {
-                u16 tex_type = getFormatField(texture, "type");
+                u16 tex_type = get_format_field(texture, "type");
                 acul::shared_ptr<UMBFRoot> asset;
                 switch (tex_type)
                 {
-                    case umbf::sign_block::format::image:
+                    case umbf::sign_block::format::Image:
                     {
                         acul::shared_ptr<Image> textureAsset = acul::make_shared<Image>();
-                        if (textureAsset->deserializeObject(texture)) asset = textureAsset;
+                        if (textureAsset->deserialize_object(texture)) asset = textureAsset;
                         break;
                     }
-                    case umbf::sign_block::format::target:
+                    case umbf::sign_block::format::Target:
                     {
                         acul::shared_ptr<Target> textureAsset = acul::make_shared<Target>();
-                        if (textureAsset->deserializeObject(texture)) asset = textureAsset;
+                        if (textureAsset->deserialize_object(texture)) asset = textureAsset;
                         break;
                     }
                     default:
-                        logError("Unsupported texture type: %x", tex_type);
+                        LOG_ERROR("Unsupported texture type: %x", tex_type);
                         return false;
                 }
                 if (asset)
                     _textures.push_back(asset);
                 else
                 {
-                    logError("Failed to deserialize texture");
+                    LOG_ERROR("Failed to deserialize texture");
                     return false;
                 }
             }
-            parseNodeInfo(obj["albedo"], _albedoNode);
+            parse_node_info(obj["albedo"], _albedo_node);
         }
         catch (const std::exception &e)
         {
-            logError("Material Deserialization error: %s", e.what());
+            LOG_ERROR("Material Deserialization error: %s", e.what());
             return false;
         }
         return true;
     }
 
-    void Material::parseNodeInfo(const rapidjson::Value &nodeInfo, umbf::MaterialNode &node)
+    void Material::parse_node_info(const rapidjson::Value &nodeInfo, umbf::MaterialNode &node)
     {
-        node.rgb = getField<glm::vec3>(nodeInfo, "rgb");
-        node.textured = getField<bool>(nodeInfo, "textured");
-        if (node.textured) node.texture_id = getField<int>(nodeInfo, "texture_id");
+        node.rgb = get_field<glm::vec3>(nodeInfo, "rgb");
+        node.textured = get_field<bool>(nodeInfo, "textured");
+        if (node.textured) node.texture_id = get_field<int>(nodeInfo, "texture_id");
     }
 
-    bool Mesh::deserializeObject(const rapidjson::Value &obj)
+    bool Mesh::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            _path = getField<acul::string>(obj, "path");
-            _matID = getField<int>(obj, "matID", false);
+            _path = get_field<acul::string>(obj, "path");
+            _mat_id = get_field<int>(obj, "mat_id", false);
         }
         catch (const std::exception &e)
         {
-            logError("Mesh Deserialization error: %s", e.what());
+            LOG_ERROR("Mesh Deserialization error: %s", e.what());
             return false;
         }
         return true;
     }
 
-    bool Scene::deserializeMeshes(const rapidjson::Value &obj)
+    bool Scene::deserialize_meshes(const rapidjson::Value &obj)
     {
-        for (auto &mesh : getField<rapidjson::Value::ConstArray>(obj, "meshes"))
+        for (auto &mesh : get_field<rapidjson::Value::ConstArray>(obj, "meshes"))
         {
-            auto meshAsset = acul::make_shared<Mesh>();
-            if (!meshAsset->deserializeObject(mesh)) return false;
-            _meshes.push_back(meshAsset);
+            auto mesh_asset = acul::make_shared<Mesh>();
+            if (!mesh_asset->deserialize_object(mesh)) return false;
+            _meshes.push_back(mesh_asset);
         }
         return true;
     }
 
-    bool Scene::deserializeTextures(const rapidjson::Value &obj)
+    bool Scene::deserialize_textures(const rapidjson::Value &obj)
     {
-        for (const auto &texture : getField<rapidjson::Value::ConstArray>(obj, "textures"))
+        for (const auto &texture : get_field<rapidjson::Value::ConstArray>(obj, "textures"))
         {
-            u16 tex_type = getFormatField(texture, "type");
+            u16 tex_type = get_format_field(texture, "type");
             acul::shared_ptr<UMBFRoot> asset;
             switch (tex_type)
             {
-                case umbf::sign_block::format::image:
+                case umbf::sign_block::format::Image:
                 {
-                    acul::shared_ptr<Image> imageAsset = acul::make_shared<Image>();
-                    if (imageAsset->deserializeObject(texture)) asset = imageAsset;
+                    acul::shared_ptr<Image> image_asset = acul::make_shared<Image>();
+                    if (image_asset->deserialize_object(texture)) asset = image_asset;
                     break;
                 }
-                case umbf::sign_block::format::target:
+                case umbf::sign_block::format::Target:
                 {
-                    acul::shared_ptr<Target> imageAsset = acul::make_shared<Target>();
-                    if (imageAsset->deserializeObject(texture)) asset = imageAsset;
+                    acul::shared_ptr<Target> image_asset = acul::make_shared<Target>();
+                    if (image_asset->deserialize_object(texture)) asset = image_asset;
                     break;
                 }
                 default:
-                    logError("Unsupported image type: %d", tex_type);
+                    LOG_ERROR("Unsupported image type: %d", tex_type);
                     return false;
             }
             if (asset)
                 _textures.push_back(asset);
             else
             {
-                logError("Failed to deserialize image");
+                LOG_ERROR("Failed to deserialize image");
                 return false;
             }
         }
         return true;
     }
 
-    bool Scene::deserializeMaterials(const rapidjson::Value &obj)
+    bool Scene::deserialize_materials(const rapidjson::Value &obj)
     {
-        for (const auto &material : getField<rapidjson::Value::ConstArray>(obj, "materials"))
+        for (const auto &material : get_field<rapidjson::Value::ConstArray>(obj, "materials"))
         {
-            acul::string name = getField<acul::string>(material, "name");
-            u16 mat_type = getFormatField(material, "type");
+            acul::string name = get_field<acul::string>(material, "name");
+            u16 mat_type = get_format_field(material, "type");
             acul::shared_ptr<UMBFRoot> asset;
             switch (mat_type)
             {
-                case umbf::sign_block::format::material:
+                case umbf::sign_block::format::Material:
                 {
-                    acul::shared_ptr<Material> materialAsset = acul::make_shared<Material>();
-                    if (materialAsset->deserializeObject(material)) asset = materialAsset;
+                    acul::shared_ptr<Material> material_asset = acul::make_shared<Material>();
+                    if (material_asset->deserialize_object(material)) asset = material_asset;
                     break;
                 }
-                case umbf::sign_block::format::target:
+                case umbf::sign_block::format::Target:
                 {
-                    acul::shared_ptr<Target> materialAsset = acul::make_shared<Target>();
-                    if (materialAsset->deserializeObject(material)) asset = materialAsset;
+                    acul::shared_ptr<Target> material_asset = acul::make_shared<Target>();
+                    if (material_asset->deserialize_object(material)) asset = material_asset;
                     break;
                 }
                 default:
-                    logError("Unsupported material type: %d", mat_type);
+                    LOG_ERROR("Unsupported material type: %d", mat_type);
                     return false;
             }
             if (asset)
                 _materials.emplace_back(name, asset);
             else
             {
-                logError("Failed to deserialize material: %s", name.c_str());
+                LOG_ERROR("Failed to deserialize material: %s", name.c_str());
                 return false;
             }
         }
         return true;
     }
 
-    bool Scene::deserializeObject(const rapidjson::Value &obj)
+    bool Scene::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            if (!deserializeMeshes(obj)) return false;
-            if (!deserializeTextures(obj)) return false;
-            if (!deserializeMaterials(obj)) return false;
+            if (!deserialize_meshes(obj)) return false;
+            if (!deserialize_textures(obj)) return false;
+            if (!deserialize_materials(obj)) return false;
         }
         catch (const std::exception &e)
         {
-            logError("Asset scene Deserialization error: %s", e.what());
+            LOG_ERROR("Asset scene Deserialization error: %s", e.what());
             return false;
         }
         return true;
     }
 
-    bool Target::deserializeObject(const rapidjson::Value &obj)
+    bool Target::deserialize_object(const rapidjson::Value &obj)
     {
         try
         {
-            _url = getField<acul::string>(obj, "url");
+            _url = get_field<acul::string>(obj, "url");
             _header.vendor_sign = UMBF_VENDOR_ID;
             _header.vendor_version = UMBF_VERSION;
             _header.spec_version = UMBF_VERSION;
-            _header.type_sign = getFormatField(obj, "target_type");
-            _header.compressed = getField<bool>(obj, "target_compress", false);
-            _checksum = getField<u64>(obj, "target_checksum", false);
+            _header.type_sign = get_format_field(obj, "target_type");
+            _header.compressed = get_field<bool>(obj, "target_compress", false);
+            _checksum = get_field<u64>(obj, "target_checksum", false);
         }
         catch (const std::exception &e)
         {
-            logError("Target Deserialization error: %s", e.what());
+            LOG_ERROR("Target Deserialization error: %s", e.what());
             return false;
         }
         return true;
     }
 
-    acul::shared_ptr<UMBFRoot> Library::parseAsset(const rapidjson::Value &obj, FileNode &node)
+    acul::shared_ptr<UMBFRoot> Library::parse_asset(const rapidjson::Value &obj, FileNode &node)
     {
-        u16 assetType = getFormatField(obj, "type");
-        switch (assetType)
+        u16 asset_type = get_format_field(obj, "type");
+        switch (asset_type)
         {
-            case umbf::sign_block::format::image:
+            case umbf::sign_block::format::Image:
             {
                 acul::shared_ptr<Image> asset = acul::make_shared<Image>();
-                if (!asset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize image asset");
+                if (!asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize image asset");
                 return asset;
             }
-            case umbf::sign_block::format::material:
+            case umbf::sign_block::format::Material:
             {
                 acul::shared_ptr<Material> asset = acul::make_shared<Material>();
-                if (!asset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize material asset");
+                if (!asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize material asset");
                 return asset;
             }
-            case umbf::sign_block::format::scene:
+            case umbf::sign_block::format::Scene:
             {
-                acul::shared_ptr<Scene> sceneAsset = acul::make_shared<Scene>();
-                if (!sceneAsset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize scene asset");
-                return sceneAsset;
+                acul::shared_ptr<Scene> scene_asset = acul::make_shared<Scene>();
+                if (!scene_asset->deserialize_object(obj))
+                    throw acul::runtime_error("Failed to deserialize scene asset");
+                return scene_asset;
             }
-            case umbf::sign_block::format::target:
+            case umbf::sign_block::format::Target:
             {
-                acul::shared_ptr<Target> targetAsset = acul::make_shared<Target>();
-                if (!targetAsset->deserializeObject(obj))
+                acul::shared_ptr<Target> target_asset = acul::make_shared<Target>();
+                if (!target_asset->deserialize_object(obj))
                     throw acul::runtime_error("Failed to deserialize target asset");
-                return targetAsset;
+                return target_asset;
             }
-            case umbf::sign_block::format::library:
+            case umbf::sign_block::format::Library:
             {
-                acul::shared_ptr<Library> libraryAsset = acul::make_shared<Library>();
-                if (!libraryAsset->deserializeObject(obj))
+                acul::shared_ptr<Library> library_asset = acul::make_shared<Library>();
+                if (!library_asset->deserialize_object(obj))
                     throw acul::runtime_error("Failed to deserialize library asset");
-                return libraryAsset;
+                return library_asset;
             }
-            case umbf::sign_block::format::raw:
+            case umbf::sign_block::format::Raw:
             {
-                acul::shared_ptr<IPath> rawAsset = acul::make_shared<IPath>(umbf::sign_block::format::raw);
-                if (!rawAsset->deserializeObject(obj)) throw acul::runtime_error("Failed to deserialize raw asset");
-                return rawAsset;
+                acul::shared_ptr<IPath> raw_asset = acul::make_shared<IPath>(umbf::sign_block::format::Raw);
+                if (!raw_asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize raw asset");
+                return raw_asset;
             }
             default:
-                throw acul::runtime_error(acul::format("Unsupported asset type: %x", assetType));
+                throw acul::runtime_error(acul::format("Unsupported asset type: %x", asset_type));
         }
         return nullptr;
     }
 
-    bool Library::parseFileTree(const rapidjson::Value &obj, FileNode &node)
+    bool Library::parse_file_tree(const rapidjson::Value &obj, FileNode &node)
     {
         try
         {
-            node.name = getField<acul::string>(obj, "name");
-            node.isFolder = getField<bool>(obj, "isFolder", false);
-            if (!node.isFolder)
+            node.name = get_field<acul::string>(obj, "name");
+            node.is_folder = get_field<bool>(obj, "isFolder", false);
+            if (!node.is_folder)
             {
                 if (!obj.HasMember("asset") || !obj["asset"].IsObject())
                     throw acul::runtime_error("Missing 'asset' field");
-                node.asset = parseAsset(obj["asset"], node);
+                node.asset = parse_asset(obj["asset"], node);
                 return true;
             }
-            for (const auto &child : getField<rapidjson::Value::ConstArray>(obj, "children"))
+            for (const auto &child : get_field<rapidjson::Value::ConstArray>(obj, "children"))
             {
-                FileNode childNode;
-                if (parseFileTree(child, childNode))
-                    node.children.push_back(childNode);
+                FileNode child_node;
+                if (parse_file_tree(child, child_node))
+                    node.children.push_back(child_node);
                 else
-                    throw acul::runtime_error("Failed to parse file node: " + childNode.name);
+                    throw acul::runtime_error("Failed to parse file node: " + child_node.name);
             }
         }
         catch (const std::exception &e)
         {
-            logError("Library Deserialization error: %s", e.what());
+            LOG_ERROR("Library Deserialization error: %s", e.what());
             return false;
         }
         return true;

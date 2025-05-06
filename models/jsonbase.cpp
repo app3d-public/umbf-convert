@@ -7,7 +7,7 @@
 
 namespace models
 {
-    bool JsonBase::deserializeFromFile(const acul::string &path, rapidjson::Document &object)
+    bool JsonBase::deserialize_from_file(const acul::string &path, rapidjson::Document &object)
 
     {
         std::ifstream stream(path.c_str());
@@ -15,23 +15,23 @@ namespace models
         buffer << stream.rdbuf();
         stream.close();
 
-        return deserializeString(buffer.str().c_str(), object);
+        return deserialize_string(buffer.str().c_str(), object);
     }
 
-    bool JsonBase::deserializeFromFile(const acul::string &path)
+    bool JsonBase::deserialize_from_file(const acul::string &path)
     {
         rapidjson::Document object;
-        return deserializeFromFile(path, object);
+        return deserialize_from_file(path, object);
     }
 
-    bool JsonBase::initDocument(const acul::string &s, rapidjson::Document &doc)
+    bool JsonBase::init_document(const acul::string &s, rapidjson::Document &doc)
     {
         if (s.empty()) return false;
         return !doc.Parse(s.c_str()).HasParseError() ? true : false;
     }
 
     template <>
-    bool getField<bool>(const rapidjson::Value &obj, const char *key, bool required)
+    bool get_field<bool>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
@@ -44,7 +44,7 @@ namespace models
     }
 
     template <>
-    int getField<int>(const rapidjson::Value &obj, const char *key, bool required)
+    int get_field<int>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
@@ -57,7 +57,7 @@ namespace models
     }
 
     template <>
-    i64 getField<i64>(const rapidjson::Value &obj, const char *key, bool required)
+    i64 get_field<i64>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
@@ -70,7 +70,7 @@ namespace models
     }
 
     template <>
-    u64 getField<u64>(const rapidjson::Value &obj, const char *key, bool required)
+    u64 get_field<u64>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
@@ -83,7 +83,7 @@ namespace models
     }
 
     template <>
-    f32 getField<f32>(const rapidjson::Value &obj, const char *key, bool required)
+    f32 get_field<f32>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
@@ -96,7 +96,7 @@ namespace models
     }
 
     template <>
-    f64 getField<f64>(const rapidjson::Value &obj, const char *key, bool required)
+    f64 get_field<f64>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
@@ -109,7 +109,7 @@ namespace models
     }
 
     template <>
-    acul::string getField<acul::string>(const rapidjson::Value &obj, const char *key, bool required)
+    acul::string get_field<acul::string>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
@@ -127,10 +127,10 @@ namespace models
 #endif
 
     template <>
-    rapidjson::Value::ConstObject getField<rapidjson::Value::ConstObject>(const rapidjson::Value &obj, const char *key,
-                                                                          bool required)
+    rapidjson::Value::ConstObject get_field<rapidjson::Value::ConstObject>(const rapidjson::Value &obj, const char *key,
+                                                                           bool required)
     {
-        static const rapidjson::Value emptyObject(rapidjson::kObjectType);
+        static const rapidjson::Value empty_object(rapidjson::kObjectType);
 
         if (obj.HasMember(key))
         {
@@ -139,12 +139,12 @@ namespace models
             return val.GetObjectA();
         }
         if (required) throw acul::runtime_error("Missing field " + acul::string(key));
-        return emptyObject.GetObjectA();
+        return empty_object.GetObjectA();
     }
 
     template <>
-    rapidjson::Value::ConstArray getField<rapidjson::Value::ConstArray>(const rapidjson::Value &obj, const char *key,
-                                                                        bool required)
+    rapidjson::Value::ConstArray get_field<rapidjson::Value::ConstArray>(const rapidjson::Value &obj, const char *key,
+                                                                         bool required)
     {
         static const rapidjson::Value emptyArray(rapidjson::kArrayType);
         if (obj.HasMember(key))
@@ -158,32 +158,32 @@ namespace models
     }
 
     template <>
-    glm::vec3 getField<glm::vec3>(const rapidjson::Value &obj, const char *key, bool required)
+    glm::vec3 get_field<glm::vec3>(const rapidjson::Value &obj, const char *key, bool required)
     {
-        auto vec3 = getField<rapidjson::Value::ConstArray>(obj, key, required);
+        auto vec3 = get_field<rapidjson::Value::ConstArray>(obj, key, required);
         return glm::vec3(vec3[0].GetFloat(), vec3[1].GetFloat(), vec3[2].GetFloat());
     }
 
-    u16 getFormatField(const rapidjson::Value &obj, const char *key)
+    u16 get_format_field(const rapidjson::Value &obj, const char *key)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
             if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
             acul::string str = val.GetString();
-            if (str == "material") return umbf::sign_block::format::material;
-            if (str == "image") return umbf::sign_block::format::image;
-            if (str == "scene") return umbf::sign_block::format::scene;
-            if (str == "target") return umbf::sign_block::format::target;
-            if (str == "library") return umbf::sign_block::format::library;
-            if (str == "raw") return umbf::sign_block::format::raw;
+            if (str == "material") return umbf::sign_block::format::Material;
+            if (str == "image") return umbf::sign_block::format::Image;
+            if (str == "scene") return umbf::sign_block::format::Scene;
+            if (str == "target") return umbf::sign_block::format::Target;
+            if (str == "library") return umbf::sign_block::format::Library;
+            if (str == "raw") return umbf::sign_block::format::Raw;
             throw acul::runtime_error("Field " + acul::string(key) + " is not a valid asset type");
         }
         throw acul::runtime_error("Missing field " + acul::string(key));
-        return umbf::sign_block::format::none;
+        return umbf::sign_block::format::None;
     }
 
-    vk::Format parseVkFormat(acul::string str)
+    vk::Format parse_vk_format(acul::string str)
     {
         static const acul::map<acul::string, vk::Format> formatMap = {
             {"R8G8B8A8_UNORM", vk::Format::eR8G8B8A8Unorm},
@@ -209,26 +209,26 @@ namespace models
     }
 
     template <>
-    vk::Format getField<vk::Format>(const rapidjson::Value &obj, const char *key, bool required)
+    vk::Format get_field<vk::Format>(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
             if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
-            return parseVkFormat(val.GetString());
+            return parse_vk_format(val.GetString());
         }
         if (required) throw acul::runtime_error("Missing field " + acul::string(key));
         return vk::Format::eUndefined;
     }
 
-    u32 getImageType(const rapidjson::Value &obj, const char *key, bool required)
+    u32 get_image_type(const rapidjson::Value &obj, const char *key, bool required)
     {
         if (obj.HasMember(key))
         {
             auto &val = obj[key];
             if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
-            if (val == "2D") return umbf::sign_block::meta::image2D;
-            if (val == "atlas") return umbf::sign_block::meta::image_atlas;
+            if (val == "2D") return umbf::sign_block::meta::Image2D;
+            if (val == "atlas") return umbf::sign_block::meta::ImageAtlas;
             throw acul::runtime_error("Field " + acul::string(key) + " is not a valid texture type");
         }
         if (required) throw acul::runtime_error("Missing field " + acul::string(key));

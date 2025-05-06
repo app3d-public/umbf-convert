@@ -8,29 +8,29 @@
 
 enum class ArgsCommand
 {
-    none,
-    show,
-    extract,
-    convert
+    None,
+    Show,
+    Extract,
+    Convert
 };
 
 enum class ConvertFormat
 {
-    raw,
-    json,
-    image,
-    scene
+    Raw,
+    Json,
+    Image,
+    Scene
 };
 
 struct Args
 {
-    ArgsCommand command = ArgsCommand::none;
+    ArgsCommand command = ArgsCommand::None;
     acul::string input, output;
     bool compressed = false;
-    ConvertFormat format = ConvertFormat::raw;
+    ConvertFormat format = ConvertFormat::Raw;
 };
 
-void parseShowCommand(Args &args, args::Subparser &parser)
+void parse_show_command(Args &args, args::Subparser &parser)
 {
     args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
     args::ValueFlag<std::string> input(parser, "path", "Input file", {'i', "input"}, args::Options::Required);
@@ -38,7 +38,7 @@ void parseShowCommand(Args &args, args::Subparser &parser)
     args.input = args::get(input).c_str();
 }
 
-void parseExtractCommand(Args &args, args::Subparser &parser)
+void parse_extract_command(Args &args, args::Subparser &parser)
 {
     args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
     args::ValueFlag<std::string> input(parser, "path", "Input file", {'i', "input"}, args::Options::Required);
@@ -55,7 +55,7 @@ struct __long
     size_t padding;
 };
 
-void parseConvertCommand(Args &args, args::Subparser &parser)
+void parse_convert_command(Args &args, args::Subparser &parser)
 {
     args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
     args::ValueFlag<std::string> input(parser, "path", "Input file", {'i', "input"}, args::Options::Required);
@@ -73,16 +73,16 @@ void parseConvertCommand(Args &args, args::Subparser &parser)
     args.compressed = args::get(compressed);
 }
 
-bool parseArgs(int argc, char **argv, Args &args)
+bool parse_args(int argc, char **argv, Args &args)
 {
     args::ArgumentParser parser("UMBF Tool");
     args::Group commands(parser, "Commands:", args::Group::Validators::Xor);
     args::Command show(commands, "show", "Show UMBF file info",
-                       [&](args::Subparser &parser) { parseShowCommand(args, parser); });
+                       [&](args::Subparser &parser) { parse_show_command(args, parser); });
     args::Command extract(commands, "extract", "Extract UMBF file",
-                          [&](args::Subparser &parser) { parseExtractCommand(args, parser); });
+                          [&](args::Subparser &parser) { parse_extract_command(args, parser); });
     args::Command convert(commands, "convert", "Convert UMBF file",
-                          [&](args::Subparser &parser) { parseConvertCommand(args, parser); });
+                          [&](args::Subparser &parser) { parse_convert_command(args, parser); });
 
     args::HelpFlag help(parser, "help", "Show help", {'h', "help"});
     args::Flag version(parser, "version", "Show version", {'v', "version"}, args::Options::KickOut);
@@ -114,87 +114,87 @@ bool parseArgs(int argc, char **argv, Args &args)
     }
 
     if (show)
-        args.command = ArgsCommand::show;
+        args.command = ArgsCommand::Show;
     else if (extract)
-        args.command = ArgsCommand::extract;
+        args.command = ArgsCommand::Extract;
     else if (convert)
-        args.command = ArgsCommand::convert;
+        args.command = ArgsCommand::Convert;
     return true;
 }
 
 int main(int argc, char **argv)
 {
     Args args;
-    if (!parseArgs(argc, argv, args)) return 1;
-    if (args.command == ArgsCommand::none) return 0;
+    if (!parse_args(argc, argv, args)) return 1;
+    if (args.command == ArgsCommand::None) return 0;
 
     acul::task::service_dispatch sd;
     acul::log::log_service *log_service = acul::alloc<acul::log::log_service>();
     sd.register_service(log_service);
     auto *app_log = log_service->add_logger<acul::log::console_logger>("app");
 #ifdef NDEBUG
-    log_service->level = acul::log::level::info;
+    log_service->level = acul::log::level::Info;
 #else
-    log_service->level = acul::log::level::trace;
+    log_service->level = acul::log::level::Trace;
 #endif
-    app_log->set_pattern("%(color_auto)%(message)%(color_off)\n");
+    app_log->set_pattern("%(message)\n");
     log_service->default_logger = app_log;
     acul::meta::hash_resolver meta_resolver;
-    meta_resolver.streams = {{acul::meta::sign_block::raw_block, &acul::meta::streams::raw_block},
-                             {umbf::sign_block::meta::image2D, &umbf::streams::image2D},
-                             {umbf::sign_block::meta::image_atlas, &umbf::streams::image_atlas},
-                             {umbf::sign_block::meta::material, &umbf::streams::material},
-                             {umbf::sign_block::meta::material_info, &umbf::streams::material_info},
-                             {umbf::sign_block::meta::scene, &umbf::streams::scene},
-                             {umbf::sign_block::meta::mesh, &umbf::streams::mesh},
-                             {umbf::sign_block::meta::target, &umbf::streams::target},
-                             {umbf::sign_block::meta::library, &umbf::streams::library}};
+    meta_resolver.streams = {{acul::meta::sign_block::Raw, &acul::meta::streams::raw_block},
+                             {umbf::sign_block::meta::Image2D, &umbf::streams::image2D},
+                             {umbf::sign_block::meta::ImageAtlas, &umbf::streams::image_atlas},
+                             {umbf::sign_block::meta::Material, &umbf::streams::material},
+                             {umbf::sign_block::meta::MaterialInfo, &umbf::streams::material_info},
+                             {umbf::sign_block::meta::Scene, &umbf::streams::scene},
+                             {umbf::sign_block::meta::Mesh, &umbf::streams::mesh},
+                             {umbf::sign_block::meta::Target, &umbf::streams::target},
+                             {umbf::sign_block::meta::Library, &umbf::streams::library}};
     acul::meta::resolver = &meta_resolver;
     bool success = false;
     try
     {
         switch (args.command)
         {
-            case ArgsCommand::show:
+            case ArgsCommand::Show:
                 success = show_file(args.input);
                 break;
-            case ArgsCommand::extract:
-                success = extractFile(args.input, args.output);
+            case ArgsCommand::Extract:
+                success = extract_file(args.input, args.output);
                 break;
-            case ArgsCommand::convert:
+            case ArgsCommand::Convert:
             {
                 u32 checksum = 0;
                 switch (args.format)
                 {
-                    case ConvertFormat::raw:
+                    case ConvertFormat::Raw:
                     {
                         umbf::File file;
-                        if (convertRaw(args.input, args.compressed, file))
+                        if (convert_raw(args.input, args.compressed, file))
                             checksum = file.save(args.output) ? file.checksum : 0;
                         break;
                     }
-                    case ConvertFormat::image:
+                    case ConvertFormat::Image:
                     {
                         umbf::File file;
-                        if (convertImage(args.input, args.compressed, file)) checksum = file.save(args.output);
+                        if (convert_image(args.input, args.compressed, file)) checksum = file.save(args.output);
                         break;
                     }
-                    case ConvertFormat::scene:
-                        checksum = convertScene(args.input, args.output, args.compressed);
+                    case ConvertFormat::Scene:
+                        checksum = convert_scene(args.input, args.output, args.compressed);
                         break;
-                    case ConvertFormat::json:
-                        checksum = convertJson(args.input, args.output, args.compressed);
+                    case ConvertFormat::Json:
+                        checksum = convert_json(args.input, args.output, args.compressed);
                         break;
                     default:
                         break;
                 }
                 if (checksum != 0)
                 {
-                    logInfo("Success. Checksum: %u", checksum);
+                    LOG_INFO("Success. Checksum: %u", checksum);
                     success = true;
                 }
                 else
-                    logError("Failed to convert file to %s", args.output.c_str());
+                    LOG_ERROR("Failed to convert file to %s", args.output.c_str());
             }
             break;
             default:
@@ -203,7 +203,7 @@ int main(int argc, char **argv)
     }
     catch (const std::exception &e)
     {
-        logError("%s", e.what());
+        LOG_ERROR("%s", e.what());
         success = false;
     }
 
