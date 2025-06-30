@@ -1,4 +1,5 @@
 #include <acul/log.hpp>
+#include <inttypes.h>
 #include <umbf/umbf.hpp>
 
 bool print_raw(umbf::File *file)
@@ -50,7 +51,7 @@ bool print_image(umbf::File *file)
     LOG_INFO("width: %d", image->width);
     LOG_INFO("height: %d", image->height);
     acul::stringstream ss;
-    for (size_t i = 0; i < image->channel_count; ++i)
+    for (int i = 0; i < image->channel_count; ++i)
     {
         ss << image->channel_names[i];
         if (i < image->channel_count - 1) ss << ", ";
@@ -58,7 +59,7 @@ bool print_image(umbf::File *file)
     LOG_INFO("channels: (%d) %s", image->channel_count, ss.str().c_str());
     LOG_INFO("bytes per channel: %d bit", image->bytes_per_channel * 8);
     LOG_INFO("image format: %s", vk::to_string(image->format).c_str());
-    LOG_INFO("size: %llu", image->size());
+    LOG_INFO("size: %" PRIu64, image->size());
     acul::release(image->pixels);
 
     auto atlas_it =
@@ -88,7 +89,7 @@ bool print_scene(umbf::File *file)
     for (auto &object : objects)
     {
         LOG_INFO("-------------------------------------");
-        LOG_INFO("id: %llx", object.id);
+        LOG_INFO("id: %" PRIx64, object.id);
         LOG_INFO("name: %s", object.name.c_str());
         if (object.meta.begin() == object.meta.end())
             LOG_INFO("neta: no");
@@ -145,7 +146,7 @@ bool print_scene(umbf::File *file)
         if (info_it != asset.blocks.end())
         {
             auto mat_info = acul::static_pointer_cast<umbf::MaterialInfo>(*info_it);
-            LOG_INFO("   | id:   %llx", mat_info->id);
+            LOG_INFO("   | id:   %" PRIx64, mat_info->id);
             LOG_INFO("   | name: %s", mat_info->name.c_str());
         }
     }
@@ -201,11 +202,11 @@ bool print_material(umbf::File *file)
     auto material = acul::static_pointer_cast<umbf::Material>(*it);
     LOG_INFO("------------material meta--------------");
     LOG_INFO("textures size: %zu", material->textures.size());
-    for (int i = 0; i < material->textures.size(); ++i)
+    for (size_t i = 0; i < material->textures.size(); ++i)
     {
         auto &texture = material->textures[i];
         if (texture.header.type_sign == umbf::sign_block::format::Image)
-            LOG_INFO("    %d | embedded image", i);
+            LOG_INFO("    %zu | embedded image", i);
         else if (texture.header.type_sign == umbf::sign_block::format::Target)
         {
             auto tit = std::find_if(texture.blocks.begin(), texture.blocks.end(),
@@ -216,10 +217,10 @@ bool print_material(umbf::File *file)
                 return false;
             }
             auto target = acul::static_pointer_cast<umbf::Target>(*tit);
-            LOG_INFO("    %d | %s", i, target->url.c_str());
+            LOG_INFO("    %zu | %s", i, target->url.c_str());
         }
         else
-            LOG_WARN("    %d | unknown type (%x)", i, texture.header.type_sign);
+            LOG_WARN("    %zu | unknown type (%x)", i, texture.header.type_sign);
     }
     LOG_INFO("albedo:");
     LOG_INFO("   rgb: %f %f %f", material->albedo.rgb.x, material->albedo.rgb.y, material->albedo.rgb.z);
@@ -260,7 +261,7 @@ bool print_library(umbf::File *file)
     }
     auto library = acul::static_pointer_cast<umbf::Library>(*it);
     LOG_INFO("------------library meta--------------");
-    print_file_hierarchy(library->fileTree);
+    print_file_hierarchy(library->file_tree);
     return true;
 }
 

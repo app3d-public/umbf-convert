@@ -217,7 +217,7 @@ bool extract_library(umbf::File *file, const acul::string &output)
         return false;
     }
     auto library = acul::static_pointer_cast<umbf::Library>(*it);
-    return extract_library_node(library->fileTree, output);
+    return extract_library_node(library->file_tree, output);
 }
 
 bool extract_file(const acul::string &input, const acul::string &output)

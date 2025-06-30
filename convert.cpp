@@ -206,7 +206,7 @@ u32 convert_scene(const acul::string &input, const acul::string &output, bool co
     for (auto &material : importer->materials()) block->materials.push_back(*material);
     auto &textures = importer->textures();
     block->textures.resize(textures.size());
-    for (int i = 0; i < textures.size(); ++i)
+    for (size_t i = 0; i < textures.size(); ++i)
     {
         create_file_structure(block->textures[i], umbf::sign_block::format::Target, false);
         block->textures[i].blocks.push_back(textures[i]);
@@ -241,7 +241,7 @@ bool convert_scene(models::Scene &scene, bool compressed, umbf::File &file)
             return false;
     }
 
-    for (int i = 0; i < scene.materials().size(); ++i)
+    for (size_t i = 0; i < scene.materials().size(); ++i)
     {
         auto &material = scene.materials()[i];
         umbf::File material_file;
@@ -328,7 +328,7 @@ u32 convert_library(const models::Library &library, const acul::string &output, 
     umbf::File file;
     create_file_structure(file, umbf::sign_block::format::Library, compressed);
     auto block = acul::make_shared<umbf::Library>();
-    prepare_library_node(library.file_tree(), block->fileTree);
+    prepare_library_node(library.file_tree(), block->file_tree);
     file.blocks.push_back(block);
     return file.save(output) ? file.checksum : 0;
 }

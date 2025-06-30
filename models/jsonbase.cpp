@@ -1,3 +1,8 @@
+#ifdef GetObject
+    #undef GetObject
+    #undef GetObjectA
+#endif
+
 #include "jsonbase.hpp"
 #include <acul/map.hpp>
 #include <acul/string/sstream.hpp>
@@ -121,11 +126,6 @@ namespace models
         return "";
     }
 
-#ifdef GetObject
-    #undef GetObject
-    #undef GetObjectA
-#endif
-
     template <>
     rapidjson::Value::ConstObject get_field<rapidjson::Value::ConstObject>(const rapidjson::Value &obj, const char *key,
                                                                            bool required)
@@ -136,10 +136,10 @@ namespace models
         {
             const rapidjson::Value &val = obj[key];
             if (!val.IsObject()) throw acul::runtime_error("Field " + acul::string(key) + " is not an object");
-            return val.GetObjectA();
+            return val.GetObject();
         }
         if (required) throw acul::runtime_error("Missing field " + acul::string(key));
-        return empty_object.GetObjectA();
+        return empty_object.GetObject();
     }
 
     template <>

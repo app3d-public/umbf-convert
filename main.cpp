@@ -91,17 +91,17 @@ bool parse_args(int argc, char **argv, Args &args)
     {
         parser.ParseCLI(argc, argv);
     }
-    catch (args::Help)
+    catch (const args::Help &)
     {
         std::cout << parser;
         return true;
     }
-    catch (args::ParseError e)
+    catch (const args::ParseError &e)
     {
         std::cerr << e.what() << std::endl;
         return false;
     }
-    catch (args::ValidationError e)
+    catch (const args::ValidationError &e)
     {
         std::cerr << "Invalid usage.\nUse --help for usage information.\n";
         return false;
@@ -129,6 +129,7 @@ int main(int argc, char **argv)
     if (args.command == ArgsCommand::None) return 0;
 
     acul::task::service_dispatch sd;
+    sd.run();
     acul::log::log_service *log_service = acul::alloc<acul::log::log_service>();
     sd.register_service(log_service);
     auto *app_log = log_service->add_logger<acul::log::console_logger>("app");
