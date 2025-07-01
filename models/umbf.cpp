@@ -23,15 +23,15 @@ namespace models
         try
         {
             _signature = get_image_type(obj, "texture_type", false);
-            if (_signature == 0) _signature = umbf::sign_block::meta::Image2D;
+            if (_signature == 0) _signature = umbf::sign_block::Image2D;
             if (!_serializer)
             {
                 switch (_signature)
                 {
-                    case umbf::sign_block::meta::Image2D:
+                    case umbf::sign_block::Image2D:
                         _serializer = acul::make_shared<IPath>(umbf::sign_block::format::Image);
                         break;
-                    case umbf::sign_block::meta::ImageAtlas:
+                    case umbf::sign_block::ImageAtlas:
                         _serializer = acul::make_shared<Atlas>();
                         break;
                     default:

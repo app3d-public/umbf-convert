@@ -22,7 +22,7 @@ bool convert_raw(const acul::string &input, bool compressed, umbf::File &file)
     acul::vector<char> data;
     auto res = acul::io::file::read_binary(input, data);
     if (res != acul::io::file::op_state::Success) return false;
-    auto block = acul::make_shared<acul::meta::raw_block>();
+    auto block = acul::make_shared<umbf::RawBlock>();
     block->data = acul::alloc_n<char>(data.size());
     memcpy(block->data, data.data(), data.size());
     block->data_size = data.size();
@@ -112,12 +112,12 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file
 
 bool convert_image(const models::Image &image, bool compressed, umbf::File &file)
 {
-    if (image.signature() == umbf::sign_block::meta::Image2D)
+    if (image.signature() == umbf::sign_block::Image2D)
     {
         auto serializer = acul::static_pointer_cast<models::IPath>(image.serializer());
         return convert_image(serializer->path(), compressed, file);
     }
-    else if (image.signature() == umbf::sign_block::meta::ImageAtlas)
+    else if (image.signature() == umbf::sign_block::ImageAtlas)
     {
         auto serializer = acul::static_pointer_cast<models::Atlas>(image.serializer());
         return convert_atlas(*serializer, compressed, file);

@@ -227,8 +227,8 @@ namespace models
         {
             auto &val = obj[key];
             if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
-            if (val == "2D") return umbf::sign_block::meta::Image2D;
-            if (val == "atlas") return umbf::sign_block::meta::ImageAtlas;
+            if (val == "2D") return umbf::sign_block::Image2D;
+            if (val == "atlas") return umbf::sign_block::ImageAtlas;
             throw acul::runtime_error("Field " + acul::string(key) + " is not a valid texture type");
         }
         if (required) throw acul::runtime_error("Missing field " + acul::string(key));

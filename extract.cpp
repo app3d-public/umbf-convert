@@ -13,12 +13,12 @@ bool extract_raw(const umbf::File *file, const acul::string &output)
         return false;
     }
     auto &block = file->blocks.front();
-    if (block->signature() != acul::meta::sign_block::Raw)
+    if (block->signature() != umbf::sign_block::Raw)
     {
         LOG_ERROR("Wrong block signature: %x. For Raw block expected raw_block.", block->signature());
         return false;
     }
-    auto raw_block = acul::dynamic_pointer_cast<acul::meta::raw_block>(block);
+    auto raw_block = acul::dynamic_pointer_cast<umbf::RawBlock>(block);
     if (!raw_block)
     {
         LOG_ERROR("Failed to cast block to RawBlock");
@@ -93,10 +93,9 @@ bool save_image(const acul::string &output, const umbf::Image2D &image)
 
 bool extract_image(umbf::File *file, const acul::string &output)
 {
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Image2D;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Image2D;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find image meta");
@@ -110,10 +109,10 @@ void add_texture_to_scene(const umbf::File::Header &header, umbf::File *file, ac
 {
     if (header.vendor_sign == UMBF_VENDOR_ID && header.type_sign == umbf::sign_block::format::Target)
     {
-        auto it = std::find_if(file->blocks.begin(), file->blocks.end(),
-                               [](const acul::shared_ptr<acul::meta::block> &block) {
-                                   return block->signature() == umbf::sign_block::meta::Target;
-                               });
+        auto it =
+            std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+                return block->signature() == umbf::sign_block::Target;
+            });
         if (it == file->blocks.end())
         {
             LOG_ERROR("Failed to find target meta");
@@ -141,10 +140,9 @@ void add_texture_to_scene(const umbf::File::Header &header, umbf::File *file, ac
 
 bool extract_scene(umbf::File *file, const acul::string &output)
 {
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Scene;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Scene;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find scene meta");
@@ -168,7 +166,8 @@ bool extract_scene(umbf::File *file, const acul::string &output)
     exporter->materials = scene->materials;
     exporter->textures.resize(scene->textures.size());
     auto &textures = exporter->textures;
-    for (size_t i = 0; i < scene->textures.size(); i++) add_texture_to_scene(scene->textures[i].header, file, textures[i]);
+    for (size_t i = 0; i < scene->textures.size(); i++)
+        add_texture_to_scene(scene->textures[i].header, file, textures[i]);
 
     bool success = exporter->save();
     acul::release(exporter);
@@ -207,10 +206,9 @@ bool extract_library_node(umbf::Library::Node &node, const acul::io::path &paren
 
 bool extract_library(umbf::File *file, const acul::string &output)
 {
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Library;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Library;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find library meta");

@@ -10,13 +10,13 @@ bool print_raw(umbf::File *file)
         return false;
     }
     auto &block = file->blocks.front();
-    if (block->signature() != acul::meta::sign_block::Raw)
+    if (block->signature() != umbf::sign_block::Raw)
     {
         LOG_ERROR("Wrong block signature: %x. For Raw block expected raw_block.", block->signature());
         return false;
     }
 
-    auto raw_block = acul::dynamic_pointer_cast<acul::meta::raw_block>(block);
+    auto raw_block = acul::dynamic_pointer_cast<umbf::RawBlock>(block);
     if (!raw_block)
     {
         LOG_ERROR("Failed to cast block to RawBlock");
@@ -36,10 +36,9 @@ void print_image_atlas(const acul::shared_ptr<umbf::Atlas> &atlas)
 
 bool print_image(umbf::File *file)
 {
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Image2D;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Image2D;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find image meta");
@@ -63,8 +62,8 @@ bool print_image(umbf::File *file)
     acul::release(image->pixels);
 
     auto atlas_it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::ImageAtlas;
+        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+            return block->signature() == umbf::sign_block::ImageAtlas;
         });
     if (atlas_it != file->blocks.end()) print_image_atlas(acul::static_pointer_cast<umbf::Atlas>(*atlas_it));
 
@@ -73,10 +72,9 @@ bool print_image(umbf::File *file)
 
 bool print_scene(umbf::File *file)
 {
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Scene;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Scene;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find scene meta");
@@ -140,9 +138,8 @@ bool print_scene(umbf::File *file)
                 LOG_ERROR("#%d | incompatible type: %hx", count++, asset.header.type_sign);
                 break;
         }
-        auto info_it = std::find_if(asset.blocks.begin(), asset.blocks.end(), [](auto &block) {
-            return block->signature() == umbf::sign_block::meta::MaterialInfo;
-        });
+        auto info_it = std::find_if(asset.blocks.begin(), asset.blocks.end(),
+                                    [](auto &block) { return block->signature() == umbf::sign_block::MaterialInfo; });
         if (info_it != asset.blocks.end())
         {
             auto mat_info = acul::static_pointer_cast<umbf::MaterialInfo>(*info_it);
@@ -161,10 +158,9 @@ bool print_target(umbf::File *file)
         return false;
     }
 
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Target;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Target;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find target meta");
@@ -190,10 +186,9 @@ bool print_material(umbf::File *file)
         LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
         return false;
     }
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Material;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Material;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find material meta");
@@ -210,7 +205,7 @@ bool print_material(umbf::File *file)
         else if (texture.header.type_sign == umbf::sign_block::format::Target)
         {
             auto tit = std::find_if(texture.blocks.begin(), texture.blocks.end(),
-                                    [](auto &block) { return block->signature() == umbf::sign_block::meta::Target; });
+                                    [](auto &block) { return block->signature() == umbf::sign_block::Target; });
             if (tit == texture.blocks.end())
             {
                 LOG_ERROR("Failed to find target meta");
@@ -250,10 +245,9 @@ bool print_library(umbf::File *file)
         LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
         return false;
     }
-    auto it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<acul::meta::block> &block) {
-            return block->signature() == umbf::sign_block::meta::Library;
-        });
+    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
+        return block->signature() == umbf::sign_block::Library;
+    });
     if (it == file->blocks.end())
     {
         LOG_ERROR("Failed to find library meta");
