@@ -1,7 +1,7 @@
 #include <acul/io/file.hpp>
 #include <acul/log.hpp>
-#include <ecl/image/import.hpp>
-#include <ecl/scene/obj/import.hpp>
+#include <aecl/image/import.hpp>
+#include <aecl/scene/obj/import.hpp>
 #include <rapidjson/document.h>
 #include <umbf/utils.hpp>
 #include <umbf/version.h>
@@ -32,7 +32,7 @@ bool convert_raw(const acul::string &input, bool compressed, umbf::File &file)
 
 bool convert_image(const acul::string &input, bool compressed, umbf::File &file)
 {
-    auto importer = ecl::image::get_importer_by_path(input);
+    auto importer = aecl::image::get_importer_by_path(input);
     acul::vector<umbf::Image2D> images;
     umbf::Image2D *pImage = nullptr;
     bool ret = false;
@@ -49,7 +49,7 @@ bool convert_image(const acul::string &input, bool compressed, umbf::File &file)
 
 acul::shared_ptr<umbf::Image2D> model_to_image(const models::IPath &model)
 {
-    auto importer = ecl::image::get_importer_by_path(model.path());
+    auto importer = aecl::image::get_importer_by_path(model.path());
     acul::vector<umbf::Image2D> images;
     acul::shared_ptr<umbf::Image2D> pImage;
     if (importer && importer->load(model.path(), images) == acul::io::file::op_state::Success)
@@ -174,13 +174,13 @@ bool convert_material(const models::Material &material, bool compressed, umbf::F
     return true;
 }
 
-acul::unique_ptr<ecl::scene::ILoader> import_mesh(const acul::string &input)
+acul::unique_ptr<aecl::scene::ILoader> import_mesh(const acul::string &input)
 {
     auto ext = acul::io::get_extension(input);
     if (ext == ".obj")
     {
-        auto obj_loader = acul::make_unique<ecl::scene::obj::Importer>(input);
-        ecl::scene::obj::Importer importer(input);
+        auto obj_loader = acul::make_unique<aecl::scene::obj::Importer>(input);
+        aecl::scene::obj::Importer importer(input);
         if (!importer.load())
         {
             LOG_ERROR("Failed to load obj: %s", importer.path().c_str());

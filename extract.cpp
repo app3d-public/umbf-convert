@@ -1,8 +1,8 @@
 #include <acul/io/file.hpp>
 #include <acul/io/path.hpp>
 #include <acul/log.hpp>
-#include <ecl/image/export.hpp>
-#include <ecl/scene/obj/export.hpp>
+#include <aecl/image/export.hpp>
+#include <aecl/scene/obj/export.hpp>
 #include <umbf/umbf.hpp>
 
 bool extract_raw(const umbf::File *file, const acul::string &output)
@@ -30,59 +30,59 @@ bool extract_raw(const umbf::File *file, const acul::string &output)
 bool save_image(const acul::string &output, const umbf::Image2D &image)
 {
     assert(image.pixels);
-    switch (ecl::image::get_type_by_extension(acul::io::get_extension(output)))
+    switch (aecl::image::get_type_by_extension(acul::io::get_extension(output)))
     {
-        case ecl::image::Type::BMP:
+        case aecl::image::Type::BMP:
         {
-            ecl::image::bmp::Params bp(image);
-            return ecl::image::bmp::save(output, bp);
+            aecl::image::bmp::Params bp(image);
+            return aecl::image::bmp::save(output, bp);
         }
-        case ecl::image::Type::GIF:
+        case aecl::image::Type::GIF:
         {
-            ecl::image::gif::Params gp({image});
-            return ecl::image::gif::save(output, gp);
+            aecl::image::gif::Params gp({image});
+            return aecl::image::gif::save(output, gp);
         }
-        case ecl::image::Type::HDR:
+        case aecl::image::Type::HDR:
         {
-            ecl::image::hdr::Params hp(image);
-            return ecl::image::hdr::save(output, hp);
+            aecl::image::hdr::Params hp(image);
+            return aecl::image::hdr::save(output, hp);
         }
-        case ecl::image::Type::HEIF:
+        case aecl::image::Type::HEIF:
         {
-            ecl::image::heif::Params hp(image);
-            return ecl::image::heif::save(output, hp);
+            aecl::image::heif::Params hp(image);
+            return aecl::image::heif::save(output, hp);
         }
-        case ecl::image::Type::JPEG:
+        case aecl::image::Type::JPEG:
         {
-            ecl::image::jpeg::Params jp(image);
-            return ecl::image::jpeg::save(output, jp);
+            aecl::image::jpeg::Params jp(image);
+            return aecl::image::jpeg::save(output, jp);
         }
-        case ecl::image::Type::OpenEXR:
+        case aecl::image::Type::OpenEXR:
         {
-            ecl::image::openEXR::Params op({image});
-            return ecl::image::openEXR::save(output, op, 2);
+            aecl::image::openEXR::Params op({image});
+            return aecl::image::openEXR::save(output, op, 2);
         }
-        case ecl::image::Type::PNG:
+        case aecl::image::Type::PNG:
         {
-            ecl::image::png::Params pp(image);
-            return ecl::image::png::save(output, pp, 1);
+            aecl::image::png::Params pp(image);
+            return aecl::image::png::save(output, pp, 1);
         }
-        case ecl::image::Type::Targa:
+        case aecl::image::Type::Targa:
         {
-            ecl::image::targa::Params tp(image);
-            return ecl::image::targa::save(output, tp);
+            aecl::image::targa::Params tp(image);
+            return aecl::image::targa::save(output, tp);
         }
-        case ecl::image::Type::TIFF:
+        case aecl::image::Type::TIFF:
         {
-            ecl::image::tiff::Params tp({image});
-            return ecl::image::tiff::save(output, tp, 1);
+            aecl::image::tiff::Params tp({image});
+            return aecl::image::tiff::save(output, tp, 1);
         }
-        case ecl::image::Type::WebP:
+        case aecl::image::Type::WebP:
         {
-            ecl::image::webp::Params wp(image);
-            return ecl::image::webp::save(output, wp);
+            aecl::image::webp::Params wp(image);
+            return aecl::image::webp::save(output, wp);
         }
-        case ecl::image::Type::UMBF:
+        case aecl::image::Type::UMBF:
             LOG_ERROR("Can't extract to self format");
             return false;
         default:
@@ -150,18 +150,18 @@ bool extract_scene(umbf::File *file, const acul::string &output)
     }
     auto scene = acul::static_pointer_cast<umbf::Scene>(*it);
     auto extension = acul::io::get_extension(output);
-    ecl::scene::IExporter *exporter;
+    aecl::scene::IExporter *exporter;
     if (extension == ".obj")
     {
-        auto *obj = acul::alloc<ecl::scene::obj::Exporter>(output);
-        obj->obj_flags = ecl::scene::obj::ObjExportFlagBits::ObjectPolicyObjects;
+        auto *obj = acul::alloc<aecl::scene::obj::Exporter>(output);
+        obj->obj_flags = aecl::scene::obj::ObjExportFlagBits::ObjectPolicyObjects;
         exporter = obj;
     }
     else
         return false;
 
-    exporter->mesh_flags = ecl::scene::MeshExportFlagBits::ExportNormals | ecl::scene::MeshExportFlagBits::ExportUV;
-    exporter->material_flags = ecl::scene::MaterialExportFlags::TextureOrigin;
+    exporter->mesh_flags = aecl::scene::MeshExportFlagBits::ExportNormals | aecl::scene::MeshExportFlagBits::ExportUV;
+    exporter->material_flags = aecl::scene::MaterialExportFlags::TextureOrigin;
     exporter->objects = scene->objects;
     exporter->materials = scene->materials;
     exporter->textures.resize(scene->textures.size());
