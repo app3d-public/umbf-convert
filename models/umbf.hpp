@@ -8,9 +8,9 @@ namespace models
     class UMBFRoot : public JsonBase
     {
     public:
-        u16 type_sign = umbf::sign_block::format::None;
+        u16 type_sign = umbf::sign_block::format::none;
 
-        UMBFRoot() : UMBFRoot(umbf::sign_block::format::None) {}
+        UMBFRoot() : UMBFRoot(umbf::sign_block::format::none) {}
         virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
     protected:
@@ -34,7 +34,7 @@ namespace models
     {
     public:
         explicit Image(const acul::shared_ptr<UMBFRoot> &serializer = nullptr, u32 signature = 0)
-            : UMBFRoot(umbf::sign_block::format::Image), _signature(signature), _serializer(serializer)
+            : UMBFRoot(umbf::sign_block::format::image), _signature(signature), _serializer(serializer)
         {
         }
 
@@ -52,7 +52,7 @@ namespace models
     class Atlas final : public UMBFRoot
     {
     public:
-        explicit Atlas() : UMBFRoot(umbf::sign_block::format::Image) {}
+        explicit Atlas() : UMBFRoot(umbf::sign_block::format::image) {}
 
         virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
@@ -80,7 +80,7 @@ namespace models
     class Material final : public UMBFRoot
     {
     public:
-        explicit Material() : UMBFRoot(umbf::sign_block::format::Material) {}
+        explicit Material() : UMBFRoot(umbf::sign_block::format::material) {}
         const acul::vector<acul::shared_ptr<UMBFRoot>> &textures() const { return _textures; }
 
         umbf::MaterialNode albedo() const { return _albedo_node; }
@@ -119,7 +119,7 @@ namespace models
             acul::shared_ptr<UMBFRoot> asset;
         };
 
-        explicit Scene() : UMBFRoot(umbf::sign_block::format::Scene) {}
+        explicit Scene() : UMBFRoot(umbf::sign_block::format::scene) {}
 
         acul::vector<acul::shared_ptr<Mesh>> &meshes() { return _meshes; }
 
@@ -142,7 +142,7 @@ namespace models
     class Target final : public UMBFRoot
     {
     public:
-        Target() : UMBFRoot(umbf::sign_block::format::Target) {}
+        Target() : UMBFRoot(umbf::sign_block::format::target) {}
 
         virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
@@ -169,7 +169,7 @@ namespace models
     class Library final : public UMBFRoot
     {
     public:
-        explicit Library() : UMBFRoot(umbf::sign_block::format::Library) {}
+        explicit Library() : UMBFRoot(umbf::sign_block::format::library) {}
 
         virtual bool deserialize_object(const rapidjson::Value &obj) override
         {

@@ -135,20 +135,20 @@ int main(int argc, char **argv)
 #ifdef NDEBUG
     log_service->level = acul::log::level::Info;
 #else
-    log_service->level = acul::log::level::Trace;
+    log_service->level = acul::log::level::trace;
 #endif
     app_log->set_pattern("%(message)\n");
     log_service->default_logger = app_log;
     umbf::streams::HashResolver meta_resolver;
-    meta_resolver.streams = {{umbf::sign_block::Raw, &umbf::streams::raw_block},
-                             {umbf::sign_block::Image2D, &umbf::streams::image2D},
-                             {umbf::sign_block::ImageAtlas, &umbf::streams::image_atlas},
-                             {umbf::sign_block::Material, &umbf::streams::material},
-                             {umbf::sign_block::MaterialInfo, &umbf::streams::material_info},
-                             {umbf::sign_block::Scene, &umbf::streams::scene},
-                             {umbf::sign_block::Mesh, &umbf::streams::mesh},
-                             {umbf::sign_block::Target, &umbf::streams::target},
-                             {umbf::sign_block::Library, &umbf::streams::library}};
+    meta_resolver.streams = {{umbf::sign_block::raw, &umbf::streams::raw_block},
+                             {umbf::sign_block::image, &umbf::streams::image},
+                             {umbf::sign_block::image_atlas, &umbf::streams::image_atlas},
+                             {umbf::sign_block::material, &umbf::streams::material},
+                             {umbf::sign_block::material_info, &umbf::streams::material_info},
+                             {umbf::sign_block::scene, &umbf::streams::scene},
+                             {umbf::sign_block::mesh, &umbf::streams::mesh},
+                             {umbf::sign_block::target, &umbf::streams::target},
+                             {umbf::sign_block::library, &umbf::streams::library}};
     umbf::streams::resolver = &meta_resolver;
     bool success = false;
     try

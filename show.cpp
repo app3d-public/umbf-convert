@@ -10,7 +10,7 @@ bool print_raw(umbf::File *file)
         return false;
     }
     auto &block = file->blocks.front();
-    if (block->signature() != umbf::sign_block::Raw)
+    if (block->signature() != umbf::sign_block::raw)
     {
         LOG_ERROR("Wrong block signature: %x. For Raw block expected raw_block.", block->signature());
         return false;
@@ -37,7 +37,7 @@ void print_image_atlas(const acul::shared_ptr<umbf::Atlas> &atlas)
 bool print_image(umbf::File *file)
 {
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Image2D;
+        return block->signature() == umbf::sign_block::image;
     });
     if (it == file->blocks.end())
     {
@@ -63,7 +63,7 @@ bool print_image(umbf::File *file)
 
     auto atlas_it =
         std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-            return block->signature() == umbf::sign_block::ImageAtlas;
+            return block->signature() == umbf::sign_block::image_atlas;
         });
     if (atlas_it != file->blocks.end()) print_image_atlas(acul::static_pointer_cast<umbf::Atlas>(*atlas_it));
 
@@ -73,7 +73,7 @@ bool print_image(umbf::File *file)
 bool print_scene(umbf::File *file)
 {
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Scene;
+        return block->signature() == umbf::sign_block::scene;
     });
     if (it == file->blocks.end())
     {
@@ -101,13 +101,13 @@ bool print_scene(umbf::File *file)
     {
         switch (texture.header.type_sign)
         {
-            case umbf::sign_block::format::None:
+            case umbf::sign_block::format::none:
                 LOG_WARN("#%d | type: none", count);
                 break;
-            case umbf::sign_block::format::Target:
+            case umbf::sign_block::format::target:
                 LOG_INFO("#%d | type: target", count);
                 break;
-            case umbf::sign_block::format::Image:
+            case umbf::sign_block::format::image:
                 LOG_INFO("#%d | type: image", count);
                 break;
             default:
@@ -123,13 +123,13 @@ bool print_scene(umbf::File *file)
     {
         switch (asset.header.type_sign)
         {
-            case umbf::sign_block::format::None:
+            case umbf::sign_block::format::none:
                 LOG_WARN("#%d | type: none", count++);
                 break;
-            case umbf::sign_block::format::Target:
+            case umbf::sign_block::format::target:
                 LOG_INFO("#%d | type: target", count++);
                 break;
-            case umbf::sign_block::format::Material:
+            case umbf::sign_block::format::material:
             {
                 LOG_INFO("#%d | type: Material", count++);
                 break;
@@ -139,7 +139,7 @@ bool print_scene(umbf::File *file)
                 break;
         }
         auto info_it = std::find_if(asset.blocks.begin(), asset.blocks.end(),
-                                    [](auto &block) { return block->signature() == umbf::sign_block::MaterialInfo; });
+                                    [](auto &block) { return block->signature() == umbf::sign_block::material_info; });
         if (info_it != asset.blocks.end())
         {
             auto mat_info = acul::static_pointer_cast<umbf::MaterialInfo>(*info_it);
@@ -152,14 +152,14 @@ bool print_scene(umbf::File *file)
 
 bool print_target(umbf::File *file)
 {
-    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::Target)
+    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::target)
     {
         LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
         return false;
     }
 
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Target;
+        return block->signature() == umbf::sign_block::target;
     });
     if (it == file->blocks.end())
     {
@@ -181,13 +181,13 @@ bool print_target(umbf::File *file)
 
 bool print_material(umbf::File *file)
 {
-    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::Material)
+    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::material)
     {
         LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
         return false;
     }
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Material;
+        return block->signature() == umbf::sign_block::material;
     });
     if (it == file->blocks.end())
     {
@@ -200,12 +200,12 @@ bool print_material(umbf::File *file)
     for (size_t i = 0; i < material->textures.size(); ++i)
     {
         auto &texture = material->textures[i];
-        if (texture.header.type_sign == umbf::sign_block::format::Image)
+        if (texture.header.type_sign == umbf::sign_block::format::image)
             LOG_INFO("    %zu | embedded image", i);
-        else if (texture.header.type_sign == umbf::sign_block::format::Target)
+        else if (texture.header.type_sign == umbf::sign_block::format::target)
         {
             auto tit = std::find_if(texture.blocks.begin(), texture.blocks.end(),
-                                    [](auto &block) { return block->signature() == umbf::sign_block::Target; });
+                                    [](auto &block) { return block->signature() == umbf::sign_block::target; });
             if (tit == texture.blocks.end())
             {
                 LOG_ERROR("Failed to find target meta");
@@ -240,13 +240,13 @@ void print_file_hierarchy(const umbf::Library::Node &node, int depth = 0, const 
 
 bool print_library(umbf::File *file)
 {
-    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::Library)
+    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::library)
     {
         LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
         return false;
     }
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Library;
+        return block->signature() == umbf::sign_block::library;
     });
     if (it == file->blocks.end())
     {
@@ -277,17 +277,17 @@ bool show_file(const acul::string &path)
 
     switch (file->header.type_sign)
     {
-        case umbf::sign_block::format::Image:
+        case umbf::sign_block::format::image:
             return print_image(file.get());
-        case umbf::sign_block::format::Target:
+        case umbf::sign_block::format::target:
             return print_target(file.get());
-        case umbf::sign_block::format::Library:
+        case umbf::sign_block::format::library:
             return print_library(file.get());
-        case umbf::sign_block::format::Scene:
+        case umbf::sign_block::format::scene:
             return print_scene(file.get());
-        case umbf::sign_block::format::Material:
+        case umbf::sign_block::format::material:
             return print_material(file.get());
-        case umbf::sign_block::format::Raw:
+        case umbf::sign_block::format::raw:
             return print_raw(file.get());
         default:
             LOG_ERROR("Unsupported file type: %x", file->header.type_sign);

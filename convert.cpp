@@ -18,10 +18,10 @@ inline void create_file_structure(umbf::File &file, u16 type_sign, bool compress
 
 bool convert_raw(const acul::string &input, bool compressed, umbf::File &file)
 {
-    create_file_structure(file, umbf::sign_block::format::Raw, compressed);
+    create_file_structure(file, umbf::sign_block::format::raw, compressed);
     acul::vector<char> data;
     auto res = acul::io::file::read_binary(input, data);
-    if (res != acul::io::file::op_state::Success) return false;
+    if (res != acul::io::file::op_state::success) return false;
     auto block = acul::make_shared<umbf::RawBlock>();
     block->data = acul::alloc_n<char>(data.size());
     memcpy(block->data, data.data(), data.size());
@@ -36,10 +36,10 @@ bool convert_image(const acul::string &input, bool compressed, umbf::File &file)
     acul::vector<umbf::Image2D> images;
     umbf::Image2D *pImage = nullptr;
     bool ret = false;
-    if (importer && importer->load(input, images) == acul::io::file::op_state::Success)
+    if (importer && importer->load(input, images) == acul::io::file::op_state::success)
     {
         pImage = &images.front();
-        create_file_structure(file, umbf::sign_block::format::Image, compressed);
+        create_file_structure(file, umbf::sign_block::format::image, compressed);
         file.blocks.push_back(acul::make_shared<umbf::Image2D>(*pImage));
         ret = true;
     }
@@ -52,7 +52,7 @@ acul::shared_ptr<umbf::Image2D> model_to_image(const models::IPath &model)
     auto importer = aecl::image::get_importer_by_path(model.path());
     acul::vector<umbf::Image2D> images;
     acul::shared_ptr<umbf::Image2D> pImage;
-    if (importer && importer->load(model.path(), images) == acul::io::file::op_state::Success)
+    if (importer && importer->load(model.path(), images) == acul::io::file::op_state::success)
         pImage = acul::make_shared<umbf::Image2D>(images.front());
     acul::release(importer);
     return pImage;
@@ -60,7 +60,7 @@ acul::shared_ptr<umbf::Image2D> model_to_image(const models::IPath &model)
 
 bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file)
 {
-    create_file_structure(file, umbf::sign_block::format::Image, compressed);
+    create_file_structure(file, umbf::sign_block::format::image, compressed);
     auto image_block = acul::make_shared<umbf::Image2D>();
     image_block->width = atlas.width();
     image_block->height = atlas.height();
@@ -112,12 +112,12 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file
 
 bool convert_image(const models::Image &image, bool compressed, umbf::File &file)
 {
-    if (image.signature() == umbf::sign_block::Image2D)
+    if (image.signature() == umbf::sign_block::image)
     {
         auto serializer = acul::static_pointer_cast<models::IPath>(image.serializer());
         return convert_image(serializer->path(), compressed, file);
     }
-    else if (image.signature() == umbf::sign_block::ImageAtlas)
+    else if (image.signature() == umbf::sign_block::image_atlas)
     {
         auto serializer = acul::static_pointer_cast<models::Atlas>(image.serializer());
         return convert_atlas(*serializer, compressed, file);
@@ -128,7 +128,7 @@ bool convert_image(const models::Image &image, bool compressed, umbf::File &file
 
 void convert_target(const models::Target &target, bool compressed, umbf::File &file)
 {
-    create_file_structure(file, umbf::sign_block::format::Target, compressed);
+    create_file_structure(file, umbf::sign_block::format::target, compressed);
     auto block = acul::make_shared<umbf::Target>();
     block->url = target.url();
     block->header = target.header();
@@ -140,12 +140,12 @@ bool convert_image(const acul::shared_ptr<models::UMBFRoot> &model, bool compres
 {
     switch (model->type_sign)
     {
-        case umbf::sign_block::format::Image:
+        case umbf::sign_block::format::image:
         {
             auto image_model = acul::static_pointer_cast<models::Image>(model);
             return convert_image(*image_model, compressed, file);
         }
-        case umbf::sign_block::format::Target:
+        case umbf::sign_block::format::target:
         {
             auto target_model = acul::static_pointer_cast<models::Target>(model);
             convert_target(*target_model, compressed, file);
@@ -159,7 +159,7 @@ bool convert_image(const acul::shared_ptr<models::UMBFRoot> &model, bool compres
 
 bool convert_material(const models::Material &material, bool compressed, umbf::File &file)
 {
-    create_file_structure(file, umbf::sign_block::format::Material, compressed);
+    create_file_structure(file, umbf::sign_block::format::material, compressed);
     auto block = acul::make_shared<umbf::Material>();
     block->albedo = material.albedo();
     for (auto &texture : material.textures())
@@ -198,7 +198,7 @@ u32 convert_scene(const acul::string &input, const acul::string &output, bool co
     if (!importer) return 0;
 
     umbf::File file;
-    create_file_structure(file, umbf::sign_block::format::Scene, compressed);
+    create_file_structure(file, umbf::sign_block::format::scene, compressed);
 
     auto block = acul::make_shared<umbf::Scene>();
     block->objects = importer->objects();
@@ -208,7 +208,7 @@ u32 convert_scene(const acul::string &input, const acul::string &output, bool co
     block->textures.resize(textures.size());
     for (size_t i = 0; i < textures.size(); ++i)
     {
-        create_file_structure(block->textures[i], umbf::sign_block::format::Target, false);
+        create_file_structure(block->textures[i], umbf::sign_block::format::target, false);
         block->textures[i].blocks.push_back(textures[i]);
     }
     file.blocks.push_back(block);
@@ -217,7 +217,7 @@ u32 convert_scene(const acul::string &input, const acul::string &output, bool co
 
 bool convert_scene(models::Scene &scene, bool compressed, umbf::File &file)
 {
-    create_file_structure(file, umbf::sign_block::format::Scene, compressed);
+    create_file_structure(file, umbf::sign_block::format::scene, compressed);
     auto scene_block = acul::make_shared<umbf::Scene>();
     scene_block->objects.reserve(scene.meshes().size());
     acul::vector<acul::vector<u64>> materials_ids(scene.materials().size());
@@ -245,12 +245,12 @@ bool convert_scene(models::Scene &scene, bool compressed, umbf::File &file)
     {
         auto &material = scene.materials()[i];
         umbf::File material_file;
-        if (material.asset->type_sign == umbf::sign_block::format::Material)
+        if (material.asset->type_sign == umbf::sign_block::format::material)
         {
             auto material_model = acul::static_pointer_cast<models::Material>(material.asset);
             if (!convert_material(*material_model, compressed, material_file)) return false;
         }
-        else if (material.asset->type_sign == umbf::sign_block::format::Target)
+        else if (material.asset->type_sign == umbf::sign_block::format::target)
         {
             auto target_model = acul::static_pointer_cast<models::Target>(material.asset);
             convert_target(*target_model, compressed, material_file);
@@ -284,22 +284,22 @@ void prepare_library_node(const models::FileNode &src, umbf::Library::Node &dst)
         {
             switch (src.asset->type_sign)
             {
-                case umbf::sign_block::format::Image:
+                case umbf::sign_block::format::image:
                     if (!convert_image(src.asset, false, dst.asset))
                         throw acul::runtime_error("Failed to create asset file");
                     break;
-                case umbf::sign_block::format::Material:
+                case umbf::sign_block::format::material:
                     if (!convert_material(*acul::static_pointer_cast<models::Material>(src.asset), false, dst.asset))
                         throw acul::runtime_error("Failed to create asset file");
                     break;
-                case umbf::sign_block::format::Scene:
+                case umbf::sign_block::format::scene:
                     if (!convert_scene(*acul::static_pointer_cast<models::Scene>(src.asset), false, dst.asset))
                         throw acul::runtime_error("Failed to create asset file");
                     break;
-                case umbf::sign_block::format::Target:
+                case umbf::sign_block::format::target:
                     convert_target(*acul::static_pointer_cast<models::Target>(src.asset), false, dst.asset);
                     break;
-                case umbf::sign_block::format::Raw:
+                case umbf::sign_block::format::raw:
                     if (!convert_raw(acul::static_pointer_cast<models::IPath>(src.asset)->path(), false, dst.asset))
                         throw acul::runtime_error("Failed to create asset file");
                     break;
@@ -326,7 +326,7 @@ void prepare_library_node(const models::FileNode &src, umbf::Library::Node &dst)
 u32 convert_library(const models::Library &library, const acul::string &output, bool compressed)
 {
     umbf::File file;
-    create_file_structure(file, umbf::sign_block::format::Library, compressed);
+    create_file_structure(file, umbf::sign_block::format::library, compressed);
     auto block = acul::make_shared<umbf::Library>();
     prepare_library_node(library.file_tree(), block->file_tree);
     file.blocks.push_back(block);
@@ -344,7 +344,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
     }
     switch (root.type_sign)
     {
-        case umbf::sign_block::format::Image:
+        case umbf::sign_block::format::image:
         {
             models::Image image;
             if (!image.deserialize_object(json))
@@ -356,7 +356,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             if (!convert_image(image, compressed, file)) return 0;
             return file.save(output) ? file.checksum : 0;
         }
-        case umbf::sign_block::format::Material:
+        case umbf::sign_block::format::material:
         {
             models::Material material;
             if (!material.deserialize_object(json))
@@ -368,7 +368,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             if (!convert_material(material, compressed, file)) return 0;
             return file.save(output) ? file.checksum : 0;
         }
-        case umbf::sign_block::format::Scene:
+        case umbf::sign_block::format::scene:
         {
             models::Scene scene;
             if (!scene.deserialize_object(json))
@@ -380,7 +380,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             if (!convert_scene(scene, compressed, file)) return 0;
             return file.save(output) ? file.checksum : 0;
         }
-        case umbf::sign_block::format::Target:
+        case umbf::sign_block::format::target:
         {
             models::Target target;
             if (!target.deserialize_object(json))
@@ -392,7 +392,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             convert_target(target, compressed, file);
             return file.save(output) ? file.checksum : 0;
         }
-        case umbf::sign_block::format::Library:
+        case umbf::sign_block::format::library:
         {
             models::Library library;
             if (!library.deserialize_object(json))

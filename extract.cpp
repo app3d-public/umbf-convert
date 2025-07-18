@@ -13,7 +13,7 @@ bool extract_raw(const umbf::File *file, const acul::string &output)
         return false;
     }
     auto &block = file->blocks.front();
-    if (block->signature() != umbf::sign_block::Raw)
+    if (block->signature() != umbf::sign_block::raw)
     {
         LOG_ERROR("Wrong block signature: %x. For Raw block expected raw_block.", block->signature());
         return false;
@@ -94,7 +94,7 @@ bool save_image(const acul::string &output, const umbf::Image2D &image)
 bool extract_image(umbf::File *file, const acul::string &output)
 {
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Image2D;
+        return block->signature() == umbf::sign_block::image;
     });
     if (it == file->blocks.end())
     {
@@ -107,11 +107,11 @@ bool extract_image(umbf::File *file, const acul::string &output)
 
 void add_texture_to_scene(const umbf::File::Header &header, umbf::File *file, acul::string &texture)
 {
-    if (header.vendor_sign == UMBF_VENDOR_ID && header.type_sign == umbf::sign_block::format::Target)
+    if (header.vendor_sign == UMBF_VENDOR_ID && header.type_sign == umbf::sign_block::format::target)
     {
         auto it =
             std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-                return block->signature() == umbf::sign_block::Target;
+                return block->signature() == umbf::sign_block::target;
             });
         if (it == file->blocks.end())
         {
@@ -141,7 +141,7 @@ void add_texture_to_scene(const umbf::File::Header &header, umbf::File *file, ac
 bool extract_scene(umbf::File *file, const acul::string &output)
 {
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Scene;
+        return block->signature() == umbf::sign_block::scene;
     });
     if (it == file->blocks.end())
     {
@@ -181,7 +181,7 @@ bool extract_library_node(umbf::Library::Node &node, const acul::io::path &paren
     if (node.is_folder)
     {
         LOG_INFO("Creating directory: %s", str.c_str());
-        if (acul::io::file::create_directory(str.c_str()) == acul::io::file::op_state::Error) return false;
+        if (acul::io::file::create_directory(str.c_str()) == acul::io::file::op_state::error) return false;
         for (auto &child : node.children)
             if (!extract_library_node(child, path)) return false;
     }
@@ -190,7 +190,7 @@ bool extract_library_node(umbf::Library::Node &node, const acul::io::path &paren
         LOG_INFO("Extracting: %s", str.c_str());
         switch (node.asset.header.type_sign)
         {
-            case umbf::sign_block::format::Raw:
+            case umbf::sign_block::format::raw:
                 if (!extract_raw(&node.asset, str)) return false;
                 break;
             default:
@@ -207,7 +207,7 @@ bool extract_library_node(umbf::Library::Node &node, const acul::io::path &paren
 bool extract_library(umbf::File *file, const acul::string &output)
 {
     auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::Library;
+        return block->signature() == umbf::sign_block::library;
     });
     if (it == file->blocks.end())
     {
@@ -229,16 +229,16 @@ bool extract_file(const acul::string &input, const acul::string &output)
     bool ret = false;
     switch (file->header.type_sign)
     {
-        case umbf::sign_block::format::Raw:
+        case umbf::sign_block::format::raw:
             ret = extract_raw(file.get(), output);
             break;
-        case umbf::sign_block::format::Image:
+        case umbf::sign_block::format::image:
             ret = extract_image(file.get(), output);
             break;
-        case umbf::sign_block::format::Scene:
+        case umbf::sign_block::format::scene:
             ret = extract_scene(file.get(), output);
             break;
-        case umbf::sign_block::format::Library:
+        case umbf::sign_block::format::library:
             ret = extract_library(file.get(), output);
             break;
         default:

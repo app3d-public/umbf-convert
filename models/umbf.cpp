@@ -23,15 +23,15 @@ namespace models
         try
         {
             _signature = get_image_type(obj, "texture_type", false);
-            if (_signature == 0) _signature = umbf::sign_block::Image2D;
+            if (_signature == 0) _signature = umbf::sign_block::image;
             if (!_serializer)
             {
                 switch (_signature)
                 {
-                    case umbf::sign_block::Image2D:
-                        _serializer = acul::make_shared<IPath>(umbf::sign_block::format::Image);
+                    case umbf::sign_block::image:
+                        _serializer = acul::make_shared<IPath>(umbf::sign_block::format::image);
                         break;
-                    case umbf::sign_block::ImageAtlas:
+                    case umbf::sign_block::image_atlas:
                         _serializer = acul::make_shared<Atlas>();
                         break;
                     default:
@@ -74,7 +74,7 @@ namespace models
             _format = get_field<vk::Format>(obj, "format");
             for (const auto &image : get_field<rapidjson::Value::ConstArray>(obj, "images"))
             {
-                acul::shared_ptr<IPath> texture = acul::make_shared<IPath>(umbf::sign_block::format::Image);
+                acul::shared_ptr<IPath> texture = acul::make_shared<IPath>(umbf::sign_block::format::image);
                 if (!texture->deserialize_object(image)) throw acul::runtime_error("Failed to deserialize image");
                 _images.push_back(texture);
             }
@@ -97,13 +97,13 @@ namespace models
                 acul::shared_ptr<UMBFRoot> asset;
                 switch (tex_type)
                 {
-                    case umbf::sign_block::format::Image:
+                    case umbf::sign_block::format::image:
                     {
                         acul::shared_ptr<Image> textureAsset = acul::make_shared<Image>();
                         if (textureAsset->deserialize_object(texture)) asset = textureAsset;
                         break;
                     }
-                    case umbf::sign_block::format::Target:
+                    case umbf::sign_block::format::target:
                     {
                         acul::shared_ptr<Target> textureAsset = acul::make_shared<Target>();
                         if (textureAsset->deserialize_object(texture)) asset = textureAsset;
@@ -172,13 +172,13 @@ namespace models
             acul::shared_ptr<UMBFRoot> asset;
             switch (tex_type)
             {
-                case umbf::sign_block::format::Image:
+                case umbf::sign_block::format::image:
                 {
                     acul::shared_ptr<Image> image_asset = acul::make_shared<Image>();
                     if (image_asset->deserialize_object(texture)) asset = image_asset;
                     break;
                 }
-                case umbf::sign_block::format::Target:
+                case umbf::sign_block::format::target:
                 {
                     acul::shared_ptr<Target> image_asset = acul::make_shared<Target>();
                     if (image_asset->deserialize_object(texture)) asset = image_asset;
@@ -208,13 +208,13 @@ namespace models
             acul::shared_ptr<UMBFRoot> asset;
             switch (mat_type)
             {
-                case umbf::sign_block::format::Material:
+                case umbf::sign_block::format::material:
                 {
                     acul::shared_ptr<Material> material_asset = acul::make_shared<Material>();
                     if (material_asset->deserialize_object(material)) asset = material_asset;
                     break;
                 }
-                case umbf::sign_block::format::Target:
+                case umbf::sign_block::format::target:
                 {
                     acul::shared_ptr<Target> material_asset = acul::make_shared<Target>();
                     if (material_asset->deserialize_object(material)) asset = material_asset;
@@ -276,42 +276,42 @@ namespace models
         u16 asset_type = get_format_field(obj, "type");
         switch (asset_type)
         {
-            case umbf::sign_block::format::Image:
+            case umbf::sign_block::format::image:
             {
                 acul::shared_ptr<Image> asset = acul::make_shared<Image>();
                 if (!asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize image asset");
                 return asset;
             }
-            case umbf::sign_block::format::Material:
+            case umbf::sign_block::format::material:
             {
                 acul::shared_ptr<Material> asset = acul::make_shared<Material>();
                 if (!asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize material asset");
                 return asset;
             }
-            case umbf::sign_block::format::Scene:
+            case umbf::sign_block::format::scene:
             {
                 acul::shared_ptr<Scene> scene_asset = acul::make_shared<Scene>();
                 if (!scene_asset->deserialize_object(obj))
                     throw acul::runtime_error("Failed to deserialize scene asset");
                 return scene_asset;
             }
-            case umbf::sign_block::format::Target:
+            case umbf::sign_block::format::target:
             {
                 acul::shared_ptr<Target> target_asset = acul::make_shared<Target>();
                 if (!target_asset->deserialize_object(obj))
                     throw acul::runtime_error("Failed to deserialize target asset");
                 return target_asset;
             }
-            case umbf::sign_block::format::Library:
+            case umbf::sign_block::format::library:
             {
                 acul::shared_ptr<Library> library_asset = acul::make_shared<Library>();
                 if (!library_asset->deserialize_object(obj))
                     throw acul::runtime_error("Failed to deserialize library asset");
                 return library_asset;
             }
-            case umbf::sign_block::format::Raw:
+            case umbf::sign_block::format::raw:
             {
-                acul::shared_ptr<IPath> raw_asset = acul::make_shared<IPath>(umbf::sign_block::format::Raw);
+                acul::shared_ptr<IPath> raw_asset = acul::make_shared<IPath>(umbf::sign_block::format::raw);
                 if (!raw_asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize raw asset");
                 return raw_asset;
             }

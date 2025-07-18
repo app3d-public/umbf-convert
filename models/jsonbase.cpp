@@ -171,16 +171,16 @@ namespace models
             auto &val = obj[key];
             if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
             acul::string str = val.GetString();
-            if (str == "material") return umbf::sign_block::format::Material;
-            if (str == "image") return umbf::sign_block::format::Image;
-            if (str == "scene") return umbf::sign_block::format::Scene;
-            if (str == "target") return umbf::sign_block::format::Target;
-            if (str == "library") return umbf::sign_block::format::Library;
-            if (str == "raw") return umbf::sign_block::format::Raw;
+            if (str == "material") return umbf::sign_block::format::material;
+            if (str == "image") return umbf::sign_block::format::image;
+            if (str == "scene") return umbf::sign_block::format::scene;
+            if (str == "target") return umbf::sign_block::format::target;
+            if (str == "library") return umbf::sign_block::format::library;
+            if (str == "raw") return umbf::sign_block::format::raw;
             throw acul::runtime_error("Field " + acul::string(key) + " is not a valid asset type");
         }
         throw acul::runtime_error("Missing field " + acul::string(key));
-        return umbf::sign_block::format::None;
+        return umbf::sign_block::format::none;
     }
 
     vk::Format parse_vk_format(acul::string str)
@@ -227,8 +227,8 @@ namespace models
         {
             auto &val = obj[key];
             if (!val.IsString()) throw acul::runtime_error("Field " + acul::string(key) + " is not a string");
-            if (val == "2D") return umbf::sign_block::Image2D;
-            if (val == "atlas") return umbf::sign_block::ImageAtlas;
+            if (val == "2D") return umbf::sign_block::image;
+            if (val == "atlas") return umbf::sign_block::image_atlas;
             throw acul::runtime_error("Field " + acul::string(key) + " is not a valid texture type");
         }
         if (required) throw acul::runtime_error("Missing field " + acul::string(key));
