@@ -25,16 +25,16 @@ foreach(FILENAME ${JSON_FILES})
         ${UMBFTOOL_INPUT_BUILD}/${FILENAME}.json
         @ONLY)
 
-    add_test(NAME umbftool_${FILENAME}
-        COMMAND $<TARGET_FILE:umbftool>
+    add_test(NAME umbf-convert_${FILENAME}
+        COMMAND $<TARGET_FILE:umbf-convert>
         convert
         -i ${UMBFTOOL_INPUT_BUILD}/${FILENAME}.json
         -o ${UMBFTOOL_OUTPUT_BUILD}/${FILENAME}.umbf
         --format=json
     )
-    set_tests_properties(umbftool_${FILENAME} PROPERTIES LABELS "umbftool")
+    set_tests_properties(umbf-convert_${FILENAME} PROPERTIES LABELS "umbftool")
 
     if(ENABLE_COVERAGE)
-        set_tests_properties(umbftool_${FILENAME} PROPERTIES ENVIRONMENT "LLVM_PROFILE_FILE=${CMAKE_BINARY_DIR}/tests/coverage/umbftool_${FILENAME}.profraw")
+        set_tests_properties(umbf-convert_${FILENAME} PROPERTIES ENVIRONMENT "LLVM_PROFILE_FILE=${CMAKE_BINARY_DIR}/tests/coverage/umbftool_${FILENAME}.profraw")
     endif()
 endforeach()

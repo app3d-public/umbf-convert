@@ -32,57 +32,57 @@ bool save_image(const acul::string &output, const umbf::Image2D &image)
     assert(image.pixels);
     switch (aecl::image::get_type_by_extension(acul::io::get_extension(output)))
     {
-        case aecl::image::Type::BMP:
+        case aecl::image::Type::bmp:
         {
             aecl::image::bmp::Params bp(image);
             return aecl::image::bmp::save(output, bp);
         }
-        case aecl::image::Type::GIF:
+        case aecl::image::Type::gif:
         {
             aecl::image::gif::Params gp({image});
             return aecl::image::gif::save(output, gp);
         }
-        case aecl::image::Type::HDR:
+        case aecl::image::Type::hdr:
         {
             aecl::image::hdr::Params hp(image);
             return aecl::image::hdr::save(output, hp);
         }
-        case aecl::image::Type::HEIF:
+        case aecl::image::Type::heif:
         {
             aecl::image::heif::Params hp(image);
             return aecl::image::heif::save(output, hp);
         }
-        case aecl::image::Type::JPEG:
+        case aecl::image::Type::jpeg:
         {
             aecl::image::jpeg::Params jp(image);
             return aecl::image::jpeg::save(output, jp);
         }
-        case aecl::image::Type::OpenEXR:
+        case aecl::image::Type::openexr:
         {
-            aecl::image::openEXR::Params op({image});
-            return aecl::image::openEXR::save(output, op, 2);
+            aecl::image::openexr::Params op({image});
+            return aecl::image::openexr::save(output, op, 2);
         }
-        case aecl::image::Type::PNG:
+        case aecl::image::Type::png:
         {
             aecl::image::png::Params pp(image);
             return aecl::image::png::save(output, pp, 1);
         }
-        case aecl::image::Type::Targa:
+        case aecl::image::Type::targa:
         {
             aecl::image::targa::Params tp(image);
             return aecl::image::targa::save(output, tp);
         }
-        case aecl::image::Type::TIFF:
+        case aecl::image::Type::tiff:
         {
             aecl::image::tiff::Params tp({image});
             return aecl::image::tiff::save(output, tp, 1);
         }
-        case aecl::image::Type::WebP:
+        case aecl::image::Type::webp:
         {
             aecl::image::webp::Params wp(image);
             return aecl::image::webp::save(output, wp);
         }
-        case aecl::image::Type::UMBF:
+        case aecl::image::Type::umbf:
             LOG_ERROR("Can't extract to self format");
             return false;
         default:

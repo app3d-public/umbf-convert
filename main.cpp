@@ -1,5 +1,5 @@
 #include <acul/log.hpp>
-#include <args/args.hxx>
+#include <args.hxx>
 #include <umbf/umbf.hpp>
 #include "convert.hpp"
 #include "extract.hpp"
@@ -133,7 +133,7 @@ int main(int argc, char **argv)
     sd.register_service(log_service);
     auto *app_log = log_service->add_logger<acul::log::console_logger>("app");
 #ifdef NDEBUG
-    log_service->level = acul::log::level::Info;
+    log_service->level = acul::log::level::info;
 #else
     log_service->level = acul::log::level::trace;
 #endif

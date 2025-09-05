@@ -71,7 +71,7 @@ namespace models
             _height = get_field<u64>(obj, "height");
             _precision = get_field<int>(obj, "precision");
             _bytes_per_channel = get_field<int>(obj, "bytesPerChannel");
-            _format = get_field<vk::Format>(obj, "format");
+            _type = get_field<umbf::ImageFormat::Type::enum_type>(obj, "format");
             for (const auto &image : get_field<rapidjson::Value::ConstArray>(obj, "images"))
             {
                 acul::shared_ptr<IPath> texture = acul::make_shared<IPath>(umbf::sign_block::format::image);
@@ -131,11 +131,11 @@ namespace models
         return true;
     }
 
-    void Material::parse_node_info(const rapidjson::Value &nodeInfo, umbf::MaterialNode &node)
+    void Material::parse_node_info(const rapidjson::Value &node_info, umbf::MaterialNode &node)
     {
-        node.rgb = get_field<glm::vec3>(nodeInfo, "rgb");
-        node.textured = get_field<bool>(nodeInfo, "textured");
-        if (node.textured) node.texture_id = get_field<int>(nodeInfo, "texture_id");
+        node.rgb = get_field<amal::vec3>(node_info, "rgb");
+        node.textured = get_field<bool>(node_info, "textured");
+        if (node.textured) node.texture_id = get_field<int>(node_info, "texture_id");
     }
 
     bool Mesh::deserialize_object(const rapidjson::Value &obj)

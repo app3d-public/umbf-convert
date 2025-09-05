@@ -1,16 +1,42 @@
 cmake_minimum_required(VERSION 3.17)
-project(umbftool
+
+if(NOT DEFINED ACBT_PROJECT_LOADED)
+    include(cmake/project.cmake)
+endif()
+
+project(umbf-convert
     VERSION 0.0.1
     LANGUAGES CXX C
-    DESCRIPTION "UMBF Tool")
+    DESCRIPTION "UMBF Convert")
+
+if(NOT DEFINED ACBT_LOADED)
+    include(cmake/utils.cmake)
+endif()
 
 add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}" RECURSE)
-add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+add_executable(${PROJECT_NAME} ${UMBF_CONVERT_SRC})
+
+if(NOT TARGET aecl)
+    add_subdirectory(modules/aecl)
+endif()
+
+if(NOT TARGET acul)
+    add_subdirectory(modules/acul)
+endif()
+
+if(NOT TARGET umbf)
+    add_subdirectory(modules/umbf)
+endif()
+
+if(NOT TARGET args)
+    add_subdirectory(modules/3rd-party/args)
+endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     acul
-    umbf
     aecl
+    umbf
+    args
 )
 
 if(BUILD_TESTS)
@@ -29,11 +55,11 @@ set_target_properties(${PROJECT_NAME}
 if(WIN32)
     # Manifest
     gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
-        acul:${acul_VERSION}
-        umbf:${umbf_VERSION}
-        aecl:${aecl_VERSION}
-        vma:${vma_VERSION}
+        libacul:${acul_VERSION}
+        libumbf:${umbf_VERSION}
+        libaecl:${aecl_VERSION}
     )
+
     # Config
     gen_app_config()
 endif()

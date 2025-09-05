@@ -64,7 +64,7 @@ namespace models
 
         int precision() const { return _precision; }
 
-        vk::Format format() const { return _format; }
+        u8 type() const { return _type; }
 
         u8 bytes_per_channel() const { return _bytes_per_channel; }
 
@@ -72,7 +72,7 @@ namespace models
         u64 _width;
         u64 _height;
         u8 _bytes_per_channel;
-        vk::Format _format;
+        u8 _type;
         int _precision;
         acul::vector<acul::shared_ptr<IPath>> _images;
     };
@@ -162,7 +162,7 @@ namespace models
     {
         acul::string name;                // Name of the file node.
         acul::vector<FileNode> children;  // Child nodes of this file node.
-        bool is_folder{false};             // Flag indicating if the node is a folder.
+        bool is_folder{false};            // Flag indicating if the node is a folder.
         acul::shared_ptr<UMBFRoot> asset; // Shared pointer to the asset associated with the node.
     };
 

@@ -50,14 +50,13 @@ bool print_image(umbf::File *file)
     LOG_INFO("width: %d", image->width);
     LOG_INFO("height: %d", image->height);
     acul::stringstream ss;
-    for (int i = 0; i < image->channel_count; ++i)
+    for (int i = 0; i < image->channels.size(); ++i)
     {
-        ss << image->channel_names[i];
-        if (i < image->channel_count - 1) ss << ", ";
+        ss << image->channels[i];
+        if (i < image->channels.size() - 1) ss << ", ";
     }
-    LOG_INFO("channels: (%d) %s", image->channel_count, ss.str().c_str());
-    LOG_INFO("bytes per channel: %d bit", image->bytes_per_channel * 8);
-    LOG_INFO("image format: %s", vk::to_string(image->format).c_str());
+    LOG_INFO("channels: (%zu) %s", image->channels.size(), ss.str().c_str());
+    LOG_INFO("image format: %s", acul::to_string(image->format).c_str());
     LOG_INFO("size: %" PRIu64, image->size());
     acul::release(image->pixels);
 

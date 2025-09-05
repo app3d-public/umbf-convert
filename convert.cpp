@@ -64,10 +64,9 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file
     auto image_block = acul::make_shared<umbf::Image2D>();
     image_block->width = atlas.width();
     image_block->height = atlas.height();
-    image_block->bytes_per_channel = atlas.bytes_per_channel();
-    image_block->channel_count = 4;
-    image_block->channel_names = {"Red", "Green", "Blue", "Alpha"};
-    image_block->format = atlas.format();
+    image_block->format.bytes_per_channel = atlas.bytes_per_channel();
+    image_block->format.type = atlas.type();
+    image_block->channels = {"red", "green", "blue", "alpha"};
 
     auto atlas_block = acul::make_shared<umbf::Atlas>();
     atlas_block->padding = 1;
@@ -82,14 +81,11 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file
             LOG_ERROR("Failed to create image: %s", image->path().c_str());
             return false;
         }
-        if (pImage->channel_count != image_block->channel_count ||
-            pImage->bytes_per_channel != image_block->bytes_per_channel || pImage->format != image_block->format)
+        if (pImage->channels.size() != image_block->channels.size() || pImage->format != image_block->format)
         {
             LOG_INFO("Converting image to the atlas format: %s", image->path().c_str());
-            void *converted = umbf::utils::convert_image(*pImage, image_block->format, image_block->channel_count);
+            void *converted = umbf::utils::convert_image(*pImage, image_block->format, image_block->channels.size());
             pImage->pixels = converted;
-            pImage->bytes_per_channel = image_block->bytes_per_channel;
-            pImage->channel_count = image_block->channel_count;
             pImage->format = image_block->format;
         }
         atlas_dst_images.push_back(pImage);
