@@ -28,9 +28,7 @@ if(NOT TARGET umbf)
     add_subdirectory(modules/umbf)
 endif()
 
-if(NOT TARGET args)
-    add_subdirectory(modules/3rd-party/args)
-endif()
+add_subdirectory(modules/3rd-party/args)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     acul
