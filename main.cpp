@@ -176,7 +176,8 @@ int main(int argc, char **argv)
                     case ConvertFormat::Image:
                     {
                         umbf::File file;
-                        if (convert_image(args.input, args.compressed, file)) checksum = file.save(args.output);
+                        if (convert_image(args.input, args.compressed, file))
+                            checksum = file.save(args.output) ? file.checksum : 0;
                         break;
                     }
                     case ConvertFormat::Scene:
