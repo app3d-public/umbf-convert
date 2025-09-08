@@ -27,8 +27,7 @@ endif()
 
 add_subdirectory(modules/3rd-party/args)
 
-add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}")
-add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/models")
+add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/src" RECURSE)
 add_executable(${PROJECT_NAME} ${UMBF_CONVERT_SRC})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
