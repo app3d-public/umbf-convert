@@ -73,10 +73,10 @@ convert:
 ### Bundled submodules
 The following dependencies are included as git submodules and must be checked out when cloning:
 
-- [acbt](https://git.homedatasrv.ru/app3d/acbt)
-- [acul](https://git.homedatasrv.ru/app3d/acul)
-- [umbf](https://git.homedatasrv.ru/app3d/umbf)
-- [aecl](https://git.homedatasrv.ru/app3d/aecl)
+- [acbt](https://github.com/app3d-public/acbt)
+- [acul](https://github.com/app3d-public/acul)
+- [umbf](https://github.com/app3d-public/umbf)
+- [aecl](https://github.com/app3d-public/aecl)
 - [args](https://github.com/Taywee/args)
 
 ## License

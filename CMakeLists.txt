@@ -13,13 +13,6 @@ if(NOT DEFINED ACBT_LOADED)
     include(cmake/utils.cmake)
 endif()
 
-add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}" RECURSE)
-add_executable(${PROJECT_NAME} ${UMBF_CONVERT_SRC})
-
-if(NOT TARGET aecl)
-    add_subdirectory(modules/aecl)
-endif()
-
 if(NOT TARGET acul)
     add_subdirectory(modules/acul)
 endif()
@@ -28,7 +21,15 @@ if(NOT TARGET umbf)
     add_subdirectory(modules/umbf)
 endif()
 
+if(NOT TARGET aecl)
+    add_subdirectory(modules/aecl)
+endif()
+
 add_subdirectory(modules/3rd-party/args)
+
+add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}")
+add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/models")
+add_executable(${PROJECT_NAME} ${UMBF_CONVERT_SRC})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     acul
@@ -50,14 +51,14 @@ set_target_properties(${PROJECT_NAME}
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/tools"
 )
 
-if(WIN32)
-    # Manifest
-    gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
-        libacul:${acul_VERSION}
-        libumbf:${umbf_VERSION}
-        libaecl:${aecl_VERSION}
-    )
+# if(WIN32)
+#     # Manifest
+#     gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
+#         libacul:${acul_VERSION}
+#         libumbf:${umbf_VERSION}
+#         libaecl:${aecl_VERSION}
+#     )
 
-    # Config
-    gen_app_config()
-endif()
+#     # Config
+#     gen_app_config()
+# endif()
