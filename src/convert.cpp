@@ -66,7 +66,7 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file
     image_block->height = atlas.height();
     image_block->format.bytes_per_channel = atlas.bytes_per_channel();
     image_block->format.type = atlas.type();
-    image_block->channels = {"red", "green", "blue", "alpha"};
+    image_block->channels = {"R", "G", "B", "A"};
 
     auto atlas_block = acul::make_shared<umbf::Atlas>();
     atlas_block->padding = 1;
@@ -161,10 +161,8 @@ bool convert_material(const models::Material &material, bool compressed, umbf::F
     for (auto &texture : material.textures())
     {
         umbf::File texture_file;
-        if (convert_image(texture, compressed, texture_file))
-            block->textures.push_back(texture_file);
-        else
-            return false;
+        if (convert_image(texture, compressed, texture_file)) block->textures.push_back(texture_file);
+        else return false;
     }
     file.blocks.push_back(block);
     return true;
@@ -231,10 +229,8 @@ bool convert_scene(models::Scene &scene, bool compressed, umbf::File &file)
     for (auto &texture : scene.textures())
     {
         umbf::File texture_file;
-        if (convert_image(texture, compressed, texture_file))
-            scene_block->textures.push_back(texture_file);
-        else
-            return false;
+        if (convert_image(texture, compressed, texture_file)) scene_block->textures.push_back(texture_file);
+        else return false;
     }
 
     for (size_t i = 0; i < scene.materials().size(); ++i)
