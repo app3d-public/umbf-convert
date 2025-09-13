@@ -161,11 +161,9 @@ namespace models
                                                                                      const char *key, bool required)
     {
         acul::string str = get_field<acul::string>(obj, key, required);
-        if (str == "uint")
-            return umbf::ImageFormat::Type::uint;
-        else if (str == "sfloat")
-            return umbf::ImageFormat::Type::sfloat;
-        if (required) throw acul::runtime_error("Missing field " + acul::string(key));
+        if (str == "uint") return umbf::ImageFormat::Type::uint;
+        else if (str == "sfloat") return umbf::ImageFormat::Type::sfloat;
+        if (required) throw acul::runtime_error(acul::format("Format value '%s' is invalid", str.c_str()));
         return umbf::ImageFormat::Type::none;
     }
 

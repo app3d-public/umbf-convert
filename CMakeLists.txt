@@ -9,6 +9,11 @@ project(umbf-convert
     LANGUAGES CXX C
     DESCRIPTION "UMBF Convert")
 
+set(APP_LIB_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${APP_LIB_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${APP_LIB_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${APP_LIB_DIR})
+
 if(NOT DEFINED ACBT_LOADED)
     include(cmake/utils.cmake)
 endif()
@@ -47,17 +52,16 @@ set_target_properties(${PROJECT_NAME}
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/tools"
 )
 
-# if(WIN32)
-#     # Manifest
-#     gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
-#         libacul:${acul_VERSION}
-#         libumbf:${umbf_VERSION}
-#         libaecl:${aecl_VERSION}
-#     )
+if(WIN32)
+    # Manifest
+    gen_manifest_app(${PROJECT_NAME} ${PROJECT_VERSION}
+        libacul:${ACUL_VERSION}
+        libumbf:${UMBF_VERSION}
+        libaecl:${AECL_VERSION}
+    )
 
-#     # Config
-#     gen_app_config()
-# endif()
+    # Config
+    gen_app_config()
+endif()
