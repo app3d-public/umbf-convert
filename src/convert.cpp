@@ -1,4 +1,5 @@
-#include <acul/io/file.hpp>
+#include <acul/io/fs/file.hpp>
+#include <acul/io/fs/path.hpp>
 #include <acul/log.hpp>
 #include <aecl/image/import.hpp>
 #include <aecl/scene/obj/import.hpp>
@@ -20,8 +21,7 @@ bool convert_raw(const acul::string &input, bool compressed, umbf::File &file)
 {
     create_file_structure(file, umbf::sign_block::format::raw, compressed);
     acul::vector<char> data;
-    auto res = acul::io::file::read_binary(input, data);
-    if (res != acul::io::file::op_state::success) return false;
+    if (acul::fs::read_binary(input, data)) return false;
     auto block = acul::make_shared<umbf::RawBlock>();
     block->data = acul::alloc_n<char>(data.size());
     memcpy(block->data, data.data(), data.size());
@@ -36,14 +36,18 @@ bool convert_image(const acul::string &input, bool compressed, umbf::File &file)
     acul::vector<umbf::Image2D> images;
     umbf::Image2D *pImage = nullptr;
     bool ret = false;
-    if (importer && importer->load(input, images) == acul::io::file::op_state::success)
+    if (importer)
     {
-        pImage = &images.front();
-        create_file_structure(file, umbf::sign_block::format::image, compressed);
-        file.blocks.push_back(acul::make_shared<umbf::Image2D>(*pImage));
-        ret = true;
+        if (importer->load(input, images))
+        {
+            pImage = &images.front();
+            create_file_structure(file, umbf::sign_block::format::image, compressed);
+            file.blocks.push_back(acul::make_shared<umbf::Image2D>(*pImage));
+            ret = true;
+        }
+        else LOG_ERROR("AECL error: %s", importer->error().c_str());
+        acul::release(importer);
     }
-    acul::release(importer);
     return ret;
 }
 
@@ -51,11 +55,14 @@ acul::shared_ptr<umbf::Image2D> model_to_image(const models::IPath &model)
 {
     auto importer = aecl::image::get_importer_by_path(model.path());
     acul::vector<umbf::Image2D> images;
-    acul::shared_ptr<umbf::Image2D> pImage;
-    if (importer && importer->load(model.path(), images) == acul::io::file::op_state::success)
-        pImage = acul::make_shared<umbf::Image2D>(images.front());
-    acul::release(importer);
-    return pImage;
+    acul::shared_ptr<umbf::Image2D> dst_image;
+    if (importer)
+    {
+        if (importer->load(model.path(), images)) dst_image = acul::make_shared<umbf::Image2D>(images.front());
+        else LOG_ERROR("AECL error: %s", importer->error().c_str());
+        acul::release(importer);
+    }
+    return dst_image;
 }
 
 bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file)
@@ -170,7 +177,7 @@ bool convert_material(const models::Material &material, bool compressed, umbf::F
 
 acul::unique_ptr<aecl::scene::ILoader> import_mesh(const acul::string &input)
 {
-    auto ext = acul::io::get_extension(input);
+    auto ext = acul::fs::get_extension(input);
     if (ext == ".obj")
     {
         auto obj_loader = acul::make_unique<aecl::scene::obj::Importer>(input);

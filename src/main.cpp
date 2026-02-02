@@ -1,5 +1,6 @@
 #include <acul/log.hpp>
 #include <args.hxx>
+#include <umbf/log.hpp>
 #include <umbf/umbf.hpp>
 #include "convert.hpp"
 #include "extract.hpp"
@@ -112,12 +113,9 @@ bool parse_args(int argc, char **argv, Args &args)
         return true;
     }
 
-    if (show)
-        args.command = ArgsCommand::Show;
-    else if (extract)
-        args.command = ArgsCommand::Extract;
-    else if (convert)
-        args.command = ArgsCommand::Convert;
+    if (show) args.command = ArgsCommand::Show;
+    else if (extract) args.command = ArgsCommand::Extract;
+    else if (convert) args.command = ArgsCommand::Convert;
     return true;
 }
 
@@ -138,7 +136,8 @@ int main(int argc, char **argv)
     log_service->level = acul::log::level::trace;
 #endif
     app_log->set_pattern("%(message)\n");
-    log_service->default_logger = app_log;
+    acul::log::set_default_logger(app_log);
+    umbf::attach_logger(log_service, app_log);
     umbf::streams::HashResolver meta_resolver;
     meta_resolver.streams = {{umbf::sign_block::raw, &umbf::streams::raw_block},
                              {umbf::sign_block::image, &umbf::streams::image},
@@ -194,8 +193,7 @@ int main(int argc, char **argv)
                     LOG_INFO("Success. Checksum: %u", checksum);
                     success = true;
                 }
-                else
-                    LOG_ERROR("Failed to convert file to %s", args.output.c_str());
+                else LOG_ERROR("Failed to convert file to %s", args.output.c_str());
             }
             break;
             default:

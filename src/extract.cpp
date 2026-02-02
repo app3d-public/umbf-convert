@@ -1,9 +1,12 @@
-#include <acul/io/file.hpp>
+#include <acul/io/fs/file.hpp>
+#include <acul/io/fs/path.hpp>
 #include <acul/io/path.hpp>
 #include <acul/log.hpp>
 #include <aecl/image/export.hpp>
 #include <aecl/scene/obj/export.hpp>
+#include <inttypes.h>
 #include <umbf/umbf.hpp>
+
 
 bool extract_raw(const umbf::File *file, const acul::string &output)
 {
@@ -24,13 +27,13 @@ bool extract_raw(const umbf::File *file, const acul::string &output)
         LOG_ERROR("Failed to cast block to RawBlock");
         return false;
     }
-    return acul::io::file::write_binary(output, raw_block->data, raw_block->data_size);
+    return acul::fs::write_binary(output, raw_block->data, raw_block->data_size);
 }
 
 bool save_image(const acul::string &output, const umbf::Image2D &image)
 {
     assert(image.pixels);
-    switch (aecl::image::get_type_by_extension(acul::io::get_extension(output)))
+    switch (aecl::image::get_type_by_extension(acul::fs::get_extension(output)))
     {
         case aecl::image::Type::bmp:
         {
@@ -121,9 +124,8 @@ void add_texture_to_scene(const umbf::File::Header &header, umbf::File *file, ac
         else
         {
             auto target = acul::static_pointer_cast<umbf::Target>(*it);
-            acul::io::path url(target->url);
-            if (url.scheme() == "file")
-                texture = url.str();
+            acul::path url(target->url);
+            if (url.scheme() == "file") texture = url.str();
             else
             {
                 LOG_ERROR("Only file scheme supported. Recieved: %s", url.scheme().c_str());
@@ -149,19 +151,18 @@ bool extract_scene(umbf::File *file, const acul::string &output)
         return false;
     }
     auto scene = acul::static_pointer_cast<umbf::Scene>(*it);
-    auto extension = acul::io::get_extension(output);
+    auto extension = acul::fs::get_extension(output);
     aecl::scene::IExporter *exporter;
     if (extension == ".obj")
     {
         auto *obj = acul::alloc<aecl::scene::obj::Exporter>(output);
-        obj->obj_flags = aecl::scene::obj::ObjExportFlagBits::ObjectPolicyObjects;
+        obj->obj_flags = aecl::scene::obj::ObjExportFlagBits::object_policy_objects;
         exporter = obj;
     }
-    else
-        return false;
+    else return false;
 
-    exporter->mesh_flags = aecl::scene::MeshExportFlagBits::ExportNormals | aecl::scene::MeshExportFlagBits::ExportUV;
-    exporter->material_flags = aecl::scene::MaterialExportFlags::TextureOrigin;
+    exporter->mesh_flags = aecl::scene::MeshExportFlagBits::export_normals | aecl::scene::MeshExportFlagBits::export_uv;
+    exporter->material_flags = aecl::scene::MaterialExportFlags::texture_origin;
     exporter->objects = scene->objects;
     exporter->materials = scene->materials;
     exporter->textures.resize(scene->textures.size());
@@ -174,14 +175,19 @@ bool extract_scene(umbf::File *file, const acul::string &output)
     return success;
 }
 
-bool extract_library_node(umbf::Library::Node &node, const acul::io::path &parent)
+bool extract_library_node(umbf::Library::Node &node, const acul::path &parent)
 {
-    acul::io::path path = parent / node.name;
+    acul::path path = parent / node.name;
     acul::string str = path.str();
     if (node.is_folder)
     {
         LOG_INFO("Creating directory: %s", str.c_str());
-        if (acul::io::file::create_directory(str.c_str()) == acul::io::file::op_state::error) return false;
+        auto cdr = acul::fs::create_directory(str.c_str());
+        if (cdr.state != ACUL_OP_SUCCESS)
+        {
+            LOG_ERROR("Failed to create directory. Error code: 0x%" PRIx64, static_cast<u64>(cdr));
+            return false;
+        }
         for (auto &child : node.children)
             if (!extract_library_node(child, path)) return false;
     }
@@ -220,10 +226,11 @@ bool extract_library(umbf::File *file, const acul::string &output)
 
 bool extract_file(const acul::string &input, const acul::string &output)
 {
-    auto file = umbf::File::read_from_disk(input);
-    if (!file)
+    acul::shared_ptr<umbf::File> file;
+    auto res = umbf::File::read_from_disk(input, file);
+    if (!res.success())
     {
-        LOG_ERROR("Failed to read file: %s", input.c_str());
+        LOG_ERROR("Failed to load file. Error code: 0x%" PRIx64, static_cast<u64>(res));
         return false;
     }
     bool ret = false;

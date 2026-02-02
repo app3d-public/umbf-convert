@@ -14,6 +14,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${APP_LIB_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${APP_LIB_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${APP_LIB_DIR})
 
+set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
+
 if(NOT DEFINED ACBT_LOADED)
     include(cmake/utils.cmake)
 endif()
@@ -46,13 +50,6 @@ if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
-
-set_target_properties(${PROJECT_NAME}
-    PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS NO
-)
 
 if(WIN32)
     # Manifest

@@ -88,8 +88,7 @@ bool print_scene(umbf::File *file)
         LOG_INFO("-------------------------------------");
         LOG_INFO("id: %" PRIx64, object.id);
         LOG_INFO("name: %s", object.name.c_str());
-        if (object.meta.begin() == object.meta.end())
-            LOG_INFO("neta: no");
+        if (object.meta.begin() == object.meta.end()) LOG_INFO("neta: no");
         else
             for (auto &block : object.meta) LOG_INFO("Meta block signature: 0x%08x", block->signature());
     }
@@ -199,8 +198,7 @@ bool print_material(umbf::File *file)
     for (size_t i = 0; i < material->textures.size(); ++i)
     {
         auto &texture = material->textures[i];
-        if (texture.header.type_sign == umbf::sign_block::format::image)
-            LOG_INFO("    %zu | embedded image", i);
+        if (texture.header.type_sign == umbf::sign_block::format::image) LOG_INFO("    %zu | embedded image", i);
         else if (texture.header.type_sign == umbf::sign_block::format::target)
         {
             auto tit = std::find_if(texture.blocks.begin(), texture.blocks.end(),
@@ -213,8 +211,7 @@ bool print_material(umbf::File *file)
             auto target = acul::static_pointer_cast<umbf::Target>(*tit);
             LOG_INFO("    %zu | %s", i, target->url.c_str());
         }
-        else
-            LOG_WARN("    %zu | unknown type (%x)", i, texture.header.type_sign);
+        else LOG_WARN("    %zu | unknown type (%x)", i, texture.header.type_sign);
     }
     LOG_INFO("albedo:");
     LOG_INFO("   rgb: %f %f %f", material->albedo.rgb.x, material->albedo.rgb.y, material->albedo.rgb.z);
@@ -225,10 +222,8 @@ bool print_material(umbf::File *file)
 
 void print_file_hierarchy(const umbf::Library::Node &node, int depth = 0, const acul::string &prefix = "")
 {
-    if (depth == 0)
-        LOG_INFO("| %s", node.name.c_str());
-    else
-        LOG_INFO("%s%s %s", prefix.c_str(), (const char *)(node.is_folder ? "|----" : "|____"), node.name.c_str());
+    if (depth == 0) LOG_INFO("| %s", node.name.c_str());
+    else LOG_INFO("%s%s %s", prefix.c_str(), (const char *)(node.is_folder ? "|----" : "|____"), node.name.c_str());
 
     acul::string newPrefix = prefix + (depth > 0 ? "|     " : "");
 
@@ -260,10 +255,11 @@ bool print_library(umbf::File *file)
 
 bool show_file(const acul::string &path)
 {
-    auto file = umbf::File::read_from_disk(path);
-    if (!file)
+    acul::shared_ptr<umbf::File> file;
+    acul::op_result res = umbf::File::read_from_disk(path, file);
+    if (!res.success())
     {
-        LOG_ERROR("Failed to load file: %s", path.c_str());
+        LOG_ERROR("Failed to load file. Error code: 0x%016" PRIx64, static_cast<u64>(res));
         return false;
     }
     LOG_INFO("vendor sign: %x", file->header.vendor_sign);
