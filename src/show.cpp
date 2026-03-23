@@ -29,7 +29,6 @@ bool print_raw(umbf::File *file)
 void print_image_atlas(const acul::shared_ptr<umbf::Atlas> &atlas)
 {
     LOG_INFO("-------------atlas meta--------------");
-    LOG_INFO("discarding step: %d", atlas->discard_step);
     LOG_INFO("rects size: %zu", atlas->pack_data.size());
     LOG_INFO("padding: %d", atlas->padding);
 }

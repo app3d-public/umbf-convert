@@ -58,22 +58,13 @@ namespace models
 
         const acul::vector<acul::shared_ptr<IPath>> &images() const { return _images; }
 
-        u64 width() const { return _width; }
-
-        u64 height() const { return _height; }
-
-        int precision() const { return _precision; }
-
         u8 type() const { return _type; }
 
         u8 bytes_per_channel() const { return _bytes_per_channel; }
 
     private:
-        u64 _width;
-        u64 _height;
         u8 _bytes_per_channel;
         u8 _type;
-        int _precision;
         acul::vector<acul::shared_ptr<IPath>> _images;
     };
 

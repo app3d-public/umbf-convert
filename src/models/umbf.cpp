@@ -67,9 +67,6 @@ namespace models
     {
         try
         {
-            _width = get_field<u64>(obj, "width");
-            _height = get_field<u64>(obj, "height");
-            _precision = get_field<int>(obj, "precision");
             _bytes_per_channel = get_field<int>(obj, "bytesPerChannel");
             _type = get_field<umbf::ImageFormat::Type::enum_type>(obj, "format");
             for (const auto &image : get_field<rapidjson::Value::ConstArray>(obj, "images"))

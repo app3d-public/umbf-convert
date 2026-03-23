@@ -8,6 +8,52 @@
 #include <umbf/version.h>
 #include "models/umbf.hpp"
 
+namespace
+{
+    amal::ivec2 find_min_square_atlas_size(const acul::vector<amal::irect> &rects, i32 padding)
+    {
+        if (rects.empty()) return {1, 1};
+
+        i32 min_side = 1;
+        for (u32 i = 0; i < rects.size(); ++i)
+            min_side = amal::max(min_side, amal::max(rects[i].size.x, rects[i].size.y) + padding * 2);
+
+        i32 max_side = min_side;
+        while (true)
+        {
+            auto probe_rects = rects;
+            const auto result =
+                umbf::utils::pack_max_rects({max_side, max_side}, 0, probe_rects,
+                                            umbf::utils::MaxRectsHeuristic::best_short_side_fit,
+                                            umbf::utils::MaxRectsTransformBits::none, padding);
+            if (result.packed) break;
+
+            if (max_side > (1 << 29)) throw acul::runtime_error("Failed to determine atlas size");
+            max_side *= 2;
+        }
+
+        i32 best_side = max_side;
+        while (min_side <= max_side)
+        {
+            const i32 mid_side = min_side + (max_side - min_side) / 2;
+            auto probe_rects = rects;
+            const auto result =
+                umbf::utils::pack_max_rects({mid_side, mid_side}, 0, probe_rects,
+                                            umbf::utils::MaxRectsHeuristic::best_short_side_fit,
+                                            umbf::utils::MaxRectsTransformBits::none, padding);
+            if (result.packed)
+            {
+                best_side = mid_side;
+                max_side = mid_side - 1;
+            }
+            else
+                min_side = mid_side + 1;
+        }
+
+        return {best_side, best_side};
+    }
+} // namespace
+
 inline void create_file_structure(umbf::File &file, u16 type_sign, bool compressed)
 {
     file.header.vendor_sign = UMBF_VENDOR_ID;
@@ -69,15 +115,12 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file
 {
     create_file_structure(file, umbf::sign_block::format::image, compressed);
     auto image_block = acul::make_shared<umbf::Image2D>();
-    image_block->width = atlas.width();
-    image_block->height = atlas.height();
     image_block->format.bytes_per_channel = atlas.bytes_per_channel();
     image_block->format.type = atlas.type();
     image_block->channels = {"R", "G", "B", "A"};
 
     auto atlas_block = acul::make_shared<umbf::Atlas>();
     atlas_block->padding = 1;
-    atlas_block->discard_step = atlas.precision();
     acul::vector<acul::shared_ptr<umbf::Image2D>> atlas_dst_images;
     atlas_dst_images.reserve(atlas.images().size());
     for (const auto &image : atlas.images())
@@ -96,11 +139,18 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::File &file
             pImage->format = image_block->format;
         }
         atlas_dst_images.push_back(pImage);
-        atlas_block->pack_data.emplace_back(rectpack2D::rect_xywh(0, 0, pImage->width + 2 * atlas_block->padding,
-                                                                  pImage->height + 2 * atlas_block->padding));
+        atlas_block->pack_data.push_back(
+            {{-1, -1}, {static_cast<i32>(pImage->width), static_cast<i32>(pImage->height)}});
     }
-    if (!umbf::pack_atlas(std::max(image_block->width, image_block->height), atlas.precision(),
-                          rectpack2D::flipping_option::DISABLED, atlas_block->pack_data))
+
+    const amal::ivec2 atlas_size = find_min_square_atlas_size(atlas_block->pack_data, atlas_block->padding);
+    image_block->width = atlas_size.x;
+    image_block->height = atlas_size.y;
+
+    if (!umbf::utils::pack_max_rects(atlas_size, 0,
+                                     atlas_block->pack_data, umbf::utils::MaxRectsHeuristic::best_short_side_fit,
+                                     umbf::utils::MaxRectsTransformBits::none, atlas_block->padding)
+             .packed)
     {
         LOG_ERROR("Failed to pack atlas");
         return false;
