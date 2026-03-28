@@ -221,6 +221,12 @@ bool extract_library(umbf::File *file, const acul::string &output)
         return false;
     }
     auto library = acul::static_pointer_cast<umbf::Library>(*it);
+    if (library->file_tree.name.empty() || library->file_tree.name == ".")
+    {
+        for (auto &child : library->file_tree.children)
+            if (!extract_library_node(child, output)) return false;
+        return true;
+    }
     return extract_library_node(library->file_tree, output);
 }
 

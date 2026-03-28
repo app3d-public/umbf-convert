@@ -27,6 +27,8 @@ struct Args
     ArgsCommand command = ArgsCommand::None;
     acul::string input, output;
     bool compressed = false;
+    bool recursive = false;
+    bool mapped = false;
     ConvertFormat format = ConvertFormat::Raw;
 };
 
@@ -63,6 +65,8 @@ void parse_convert_command(Args &args, args::Subparser &parser)
                                         args::Options::Required);
     args::ValueFlag<std::string> output(parser, "path", "Output file", {'o', "output"}, args::Options::Required);
     args::Flag compressed(parser, "compressed", "Compressed", {"compressed"});
+    args::Flag recursive(parser, "recursive", "Recursive directory import", {'R', "recursive"});
+    args::Flag mapped(parser, "mapped", "Store raw directory as mapped library", {"mapped"});
     parser.Parse();
     args.input = args::get(input).c_str();
     args.output = args::get(output).c_str();
@@ -71,6 +75,8 @@ void parse_convert_command(Args &args, args::Subparser &parser)
     if (it == std::end(values)) throw args::ValidationError("Invalid format");
     args.format = static_cast<ConvertFormat>(std::distance(std::begin(values), it));
     args.compressed = args::get(compressed);
+    args.recursive = args::get(recursive);
+    args.mapped = args::get(mapped);
 }
 
 bool parse_args(int argc, char **argv, Args &args)
@@ -147,7 +153,8 @@ int main(int argc, char **argv)
                              {umbf::sign_block::scene, &umbf::streams::scene},
                              {umbf::sign_block::mesh, &umbf::streams::mesh},
                              {umbf::sign_block::target, &umbf::streams::target},
-                             {umbf::sign_block::library, &umbf::streams::library}};
+                             {umbf::sign_block::library, &umbf::streams::library},
+                             {umbf::sign_block::mapping, &umbf::streams::mapping_block}};
     umbf::streams::resolver = &meta_resolver;
     bool success = false;
     try
@@ -168,7 +175,7 @@ int main(int argc, char **argv)
                     case ConvertFormat::Raw:
                     {
                         umbf::File file;
-                        if (convert_raw(args.input, args.compressed, file))
+                        if (convert_raw(args.input, args.compressed, args.recursive, args.mapped, file))
                             checksum = file.save(args.output) ? file.checksum : 0;
                         break;
                     }

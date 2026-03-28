@@ -13,7 +13,7 @@
   * `image` - import an image into a UMBF image.
   * `scene` - import a scene/mesh file into a UMBF scene.
 
-Optional flag `--compressed` (for `convert`) enables writing the resulting UMBF in compressed form (when supported by the block type).
+Optional flag `--compressed` (for `convert`) enables compression. For `convert --format raw --mapped`, compression is applied per file before it is appended into the shared mapped payload.
 
 ## Usage
 
@@ -53,6 +53,8 @@ convert:
       --format <raw|json|image|scene> (required) input interpretation
   -o, --output <path>                (required)  output UMBF file
       --compressed                               write compressed UMBF
+  -R, --recursive                               import raw directory recursively as library
+      --mapped                                  store recursive raw library as Mapping + shared RawBlock
 ```
 
 ## Building

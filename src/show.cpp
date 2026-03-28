@@ -172,7 +172,7 @@ bool print_target(umbf::File *file)
     LOG_INFO("spec version: %x", target->header.spec_version);
     LOG_INFO("checksum: %u", target->checksum);
     LOG_INFO("type: %x", target->header.type_sign);
-    LOG_INFO("compressed: %s", target->header.compressed ? "true" : "false");
+    LOG_INFO("flags: 0x%02x", target->header.flags);
     return true;
 }
 
@@ -221,7 +221,7 @@ bool print_material(umbf::File *file)
 
 void print_file_hierarchy(const umbf::Library::Node &node, int depth = 0, const acul::string &prefix = "")
 {
-    if (depth == 0) LOG_INFO("| %s", node.name.c_str());
+    if (depth == 0 && !node.name.empty() && node.name != ".") LOG_INFO("| %s", node.name.c_str());
     else LOG_INFO("%s%s %s", prefix.c_str(), (const char *)(node.is_folder ? "|----" : "|____"), node.name.c_str());
 
     acul::string newPrefix = prefix + (depth > 0 ? "|     " : "");
@@ -248,7 +248,13 @@ bool print_library(umbf::File *file)
     }
     auto library = acul::static_pointer_cast<umbf::Library>(*it);
     LOG_INFO("------------library meta--------------");
-    print_file_hierarchy(library->file_tree);
+    if (library->file_tree.name.empty() || library->file_tree.name == ".")
+    {
+        for (const auto &child : library->file_tree.children)
+            print_file_hierarchy(child);
+    }
+    else
+        print_file_hierarchy(library->file_tree);
     return true;
 }
 
@@ -265,7 +271,7 @@ bool show_file(const acul::string &path)
     LOG_INFO("vendor version: %x", file->header.vendor_version);
     LOG_INFO("spec version: %x", file->header.spec_version);
     LOG_INFO("type sign: %x", file->header.type_sign);
-    LOG_INFO("compressed: %s", file->header.compressed ? "true" : "false");
+    LOG_INFO("flags: 0x%02x", file->header.flags);
     LOG_INFO("checksum: %u", file->checksum);
     if (file->header.vendor_sign != UMBF_VENDOR_ID) return true;
 

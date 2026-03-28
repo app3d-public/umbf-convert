@@ -2,7 +2,7 @@
 #include <acul/string/string.hpp>
 #include <umbf/umbf.hpp>
 
-bool convert_raw(const acul::string &input, bool compressed, umbf::File &file);
+bool convert_raw(const acul::string &input, bool compressed, bool recursive, bool mapped, umbf::File &file);
 
 u32 convert_image(const acul::string &input, bool compressed, umbf::File &file);
 

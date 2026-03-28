@@ -257,7 +257,7 @@ namespace models
             _header.vendor_version = UMBF_VERSION;
             _header.spec_version = UMBF_VERSION;
             _header.type_sign = get_format_field(obj, "target_type");
-            _header.compressed = get_field<bool>(obj, "target_compress", false);
+            _header.flags = get_field<bool>(obj, "target_compress", false) ? UMBF_COMPRESSION_PAYLOAD_BIT : 0;
             _checksum = get_field<u64>(obj, "target_checksum", false);
         }
         catch (const std::exception &e)

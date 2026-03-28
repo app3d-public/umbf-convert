@@ -1,5 +1,6 @@
 #include <acul/io/fs/file.hpp>
 #include <acul/io/fs/path.hpp>
+#include <acul/io/path.hpp>
 #include <acul/log.hpp>
 #include <aecl/image/import.hpp>
 #include <aecl/scene/obj/import.hpp>
@@ -54,26 +55,178 @@ namespace
     }
 } // namespace
 
-inline void create_file_structure(umbf::File &file, u16 type_sign, bool compressed)
+inline void create_file_structure(umbf::File &file, u16 type_sign, u8 flags = 0)
 {
     file.header.vendor_sign = UMBF_VENDOR_ID;
     file.header.vendor_version = UMBF_VERSION;
     file.header.spec_version = UMBF_VERSION;
     file.header.type_sign = type_sign;
-    file.header.compressed = compressed;
+    file.header.flags = flags;
 }
 
-bool convert_raw(const acul::string &input, bool compressed, umbf::File &file)
+namespace
 {
-    create_file_structure(file, umbf::sign_block::format::raw, compressed);
-    acul::vector<char> data;
-    if (acul::fs::read_binary(input, data)) return false;
-    auto block = acul::make_shared<umbf::RawBlock>();
-    block->data = acul::alloc_n<char>(data.size());
-    memcpy(block->data, data.data(), data.size());
-    block->data_size = data.size();
-    file.blocks.push_back(block);
-    return true;
+    constexpr int default_compression_level = 5;
+
+    bool read_raw_file(const acul::string &input, acul::vector<char> &data)
+    {
+        if (!acul::fs::read_binary(input, data))
+        {
+            LOG_ERROR("Failed to read raw file: %s", input.c_str());
+            return false;
+        }
+        return true;
+    }
+
+    bool convert_raw_file(const acul::string &input, umbf::File &file)
+    {
+        acul::vector<char> data;
+        if (!read_raw_file(input, data)) return false;
+        auto block = acul::make_shared<umbf::RawBlock>();
+        block->data = acul::alloc_n<char>(data.size());
+        memcpy(block->data, data.data(), data.size());
+        block->data_size = data.size();
+        file.blocks.push_back(block);
+        return true;
+    }
+
+    umbf::Library::Node *find_or_create_folder(umbf::Library::Node &parent, const acul::string &name)
+    {
+        auto it = std::find_if(parent.children.begin(), parent.children.end(),
+                               [&name](const umbf::Library::Node &child) { return child.name == name; });
+        if (it != parent.children.end()) return &(*it);
+
+        umbf::Library::Node folder;
+        folder.name = name;
+        folder.is_folder = true;
+        parent.children.push_back(std::move(folder));
+        return &parent.children.back();
+    }
+
+    bool append_mapped_payload(const acul::string &input, bool compressed, umbf::File &asset, acul::vector<char> &payload)
+    {
+        acul::vector<char> data;
+        if (!read_raw_file(input, data)) return false;
+
+        acul::vector<char> stored = std::move(data);
+        if (compressed)
+        {
+            acul::vector<char> compressed_data;
+            auto cr = acul::fs::compress(stored.data(), stored.size(), compressed_data, default_compression_level);
+            if (!cr.success())
+            {
+                LOG_ERROR("Failed to compress raw file: %s", input.c_str());
+                return false;
+            }
+            stored = std::move(compressed_data);
+        }
+
+        create_file_structure(asset, umbf::sign_block::format::raw);
+        auto mapping = acul::make_shared<umbf::Mapping>();
+        mapping->offset = payload.size();
+        mapping->size = stored.size();
+        asset.blocks.push_back(mapping);
+        payload.insert(payload.end(), stored.begin(), stored.end());
+        return true;
+    }
+
+    bool build_raw_library_node(umbf::Library::Node &root, const acul::path &relative_path, const acul::string &source_path,
+                                bool mapped, bool compressed, acul::vector<char> *payload)
+    {
+        umbf::Library::Node *current = &root;
+        for (size_t i = 0; i < relative_path.size(); ++i)
+        {
+            const bool is_leaf = i + 1 == relative_path.size();
+            const auto &part = *(relative_path.begin() + static_cast<ptrdiff_t>(i));
+            if (!is_leaf)
+            {
+                current = find_or_create_folder(*current, part);
+                continue;
+            }
+
+            umbf::Library::Node node;
+            node.name = part;
+            node.is_folder = false;
+            const bool ok = mapped ? append_mapped_payload(source_path, compressed, node.asset, *payload)
+                                   : convert_raw_file(source_path, node.asset);
+            if (!ok) return false;
+            current->children.push_back(std::move(node));
+        }
+        return true;
+    }
+
+    bool convert_raw_directory(const acul::string &input, bool compressed, bool mapped, umbf::File &file)
+    {
+        acul::vector<acul::string> files;
+        auto lr = acul::fs::list_files(input, files, true);
+        if (!lr.success())
+        {
+            LOG_ERROR("Failed to list directory: %s", input.c_str());
+            return false;
+        }
+        if (files.empty())
+        {
+            LOG_ERROR("Directory is empty: %s", input.c_str());
+            return false;
+        }
+
+        std::sort(files.begin(), files.end());
+
+        const acul::path base_path(input);
+        const acul::string base_str = base_path.str();
+        auto library = acul::make_shared<umbf::Library>();
+        library->file_tree.name = ".";
+        library->file_tree.is_folder = true;
+
+        acul::vector<char> payload;
+        for (const auto &entry : files)
+        {
+            if (entry.size() <= base_str.size()) continue;
+            size_t relative_offset = base_str.size();
+            if (entry[relative_offset] == '/' || entry[relative_offset] == '\\') ++relative_offset;
+            const acul::path relative_path(entry.substr(relative_offset));
+            if (!build_raw_library_node(library->file_tree, relative_path, entry, mapped, compressed, &payload))
+                return false;
+        }
+
+        const u8 flags = mapped ? static_cast<u8>(compressed ? UMBF_COMPRESSION_MAPPED_BIT : 0)
+                                : static_cast<u8>(compressed ? UMBF_COMPRESSION_PAYLOAD_BIT : 0);
+        create_file_structure(file, umbf::sign_block::format::library, flags);
+        file.blocks.push_back(library);
+
+        if (mapped)
+        {
+            auto raw = acul::make_shared<umbf::RawBlock>();
+            raw->data_size = payload.size();
+            raw->data = acul::alloc_n<char>(payload.size());
+            memcpy(raw->data, payload.data(), payload.size());
+            file.blocks.push_back(raw);
+        }
+        return true;
+    }
+} // namespace
+
+bool convert_raw(const acul::string &input, bool compressed, bool recursive, bool mapped, umbf::File &file)
+{
+    if (acul::fs::is_directory(input.c_str()))
+    {
+        if (!recursive)
+        {
+            LOG_ERROR("Directory input for raw conversion requires -R");
+            return false;
+        }
+        return convert_raw_directory(input, compressed, mapped, file);
+    }
+
+    if (mapped)
+    {
+        LOG_ERROR("--mapped is supported only for recursive raw directory conversion");
+        return false;
+    }
+
+    create_file_structure(file, umbf::sign_block::format::raw,
+                          compressed ? UMBF_COMPRESSION_PAYLOAD_BIT : 0);
+    return convert_raw_file(input, file);
 }
 
 bool convert_image(const acul::string &input, bool compressed, umbf::File &file)
@@ -349,7 +502,8 @@ void prepare_library_node(const models::FileNode &src, umbf::Library::Node &dst)
                     convert_target(*acul::static_pointer_cast<models::Target>(src.asset), false, dst.asset);
                     break;
                 case umbf::sign_block::format::raw:
-                    if (!convert_raw(acul::static_pointer_cast<models::IPath>(src.asset)->path(), false, dst.asset))
+                    create_file_structure(dst.asset, umbf::sign_block::format::raw);
+                    if (!convert_raw_file(acul::static_pointer_cast<models::IPath>(src.asset)->path(), dst.asset))
                         throw acul::runtime_error("Failed to create asset file");
                     break;
                 default:
