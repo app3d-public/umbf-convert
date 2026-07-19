@@ -26,6 +26,10 @@ if(NOT TARGET acul)
     add_subdirectory(modules/acul)
 endif()
 
+if(NOT TARGET amal)
+    add_subdirectory(modules/amal)
+endif()
+
 if(NOT TARGET umbf)
     add_subdirectory(modules/umbf)
 endif()

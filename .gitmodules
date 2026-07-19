@@ -13,3 +13,6 @@
 [submodule "modules/umbf"]
 	path = modules/umbf
 	url = ../umbf.git
+[submodule "modules/amal"]
+	path = modules/amal
+	url = ../amal.git
