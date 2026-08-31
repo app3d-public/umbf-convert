@@ -13,7 +13,7 @@
   * `image` - import an image into a UMBF image.
   * `scene` - import a scene/mesh file into a UMBF scene.
 
-Optional flag `--compressed` (for `convert`) enables compression. For `convert --format raw --mapped`, compression is applied per file before it is appended into the shared mapped payload.
+Optional flag `--compressed` (for `convert`) enables compression. 
 
 ## Usage
 
@@ -42,19 +42,19 @@ Global options:
   -v, --version    Show version
 
 show:
-  -i, --input <path>                 (required)  UMBF file
+  -i, --input <path>                  (required)  UMBF file
 
 extract:
-  -i, --input <path>                 (required)  UMBF file
-  -o, --output <path>                (required)  destination file
+  -i, --input <path>                  (required)  UMBF file
+  -o, --output <path>                 (required)  destination file
 
 convert:
-  -i, --input <path>                 (required)  external source file
-      --format <raw|json|image|scene> (required) input interpretation
-  -o, --output <path>                (required)  output UMBF file
-      --compressed                               write compressed UMBF
-  -R, --recursive                               import raw directory recursively as library
-      --mapped                                  store recursive raw library as Mapping + shared RawBlock
+  -i, --input <path>                  (required)  external source file
+      --format <raw|json|image|scene> (required)  input interpretation
+  -o, --output <path>                 (required)  output UMBF file
+      --work-dir <path>                           base directory for resource paths
+      --compressed                                compress UMBF segments
+  -R, --recursive                                 import raw directory recursively as library
 ```
 
 ## Building
@@ -75,11 +75,11 @@ convert:
 ### Bundled submodules
 The following dependencies are included as git submodules and must be checked out when cloning:
 
-- [acbt](https://repos.homedatasrv.ru/app3d/acbt)
-- [acul](https://repos.homedatasrv.ru/app3d/acul)
-- [amal](https://repos.homedatasrv.ru/app3d/amal)
-- [umbf](https://repos.homedatasrv.ru/app3d/umbf)
-- [aecl](https://repos.homedatasrv.ru/app3d/aecl)
+- [acbt](https://repos.wusikijeronii.me/app3d/acbt)
+- [acul](https://repos.wusikijeronii.me/app3d/acul)
+- [amal](https://repos.wusikijeronii.me/app3d/amal)
+- [umbf](https://repos.wusikijeronii.me/app3d/umbf)
+- [aecl](https://repos.wusikijeronii.me/app3d/aecl)
 - [args](https://github.com/Taywee/args)
 
 ## License

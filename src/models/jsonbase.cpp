@@ -7,19 +7,36 @@
 #include <acul/map.hpp>
 #include <acul/string/sstream.hpp>
 #include <fstream>
+#include <rapidjson/error/en.h>
+#include <umbf/ext/image/image.hpp>
+#include <umbf/ext/material/material.hpp>
+#include <umbf/ext/scene/scene.hpp>
 #include <umbf/umbf.hpp>
+
 
 namespace models
 {
     bool JsonBase::deserialize_from_file(const acul::string &path, rapidjson::Document &object)
-
     {
+        _error.clear();
         std::ifstream stream(path.c_str());
+        if (!stream.is_open())
+        {
+            _error = "Failed to open JSON file: " + path;
+            return false;
+        }
         acul::stringstream buffer;
         buffer << stream.rdbuf();
         stream.close();
-
-        return deserialize_string(buffer.str().c_str(), object);
+        if (!init_document(buffer.str(), object))
+        {
+            _error = acul::format("Failed to parse JSON file '%s' at offset %zu: %s", path.c_str(),
+                                  object.GetErrorOffset(), rapidjson::GetParseError_En(object.GetParseError()));
+            return false;
+        }
+        if (deserialize_object(object)) return true;
+        _error = "Failed to deserialize JSON file: " + path;
+        return false;
     }
 
     bool JsonBase::deserialize_from_file(const acul::string &path)
@@ -174,7 +191,7 @@ namespace models
         return amal::vec3(vec3[0].GetFloat(), vec3[1].GetFloat(), vec3[2].GetFloat());
     }
 
-    u16 get_format_field(const rapidjson::Value &obj, const char *key)
+    u32 get_format_field(const rapidjson::Value &obj, const char *key)
     {
         if (obj.HasMember(key))
         {

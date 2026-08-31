@@ -38,8 +38,7 @@ namespace models
                         throw acul::runtime_error("Unsupported texture type");
                 }
             }
-            else
-                LOG_INFO("Texture already deserialized");
+            else LOG_INFO("Texture already deserialized");
             return _serializer->deserialize_object(obj);
         }
         catch (const std::exception &e)
@@ -90,7 +89,7 @@ namespace models
         {
             for (const auto &texture : get_field<rapidjson::Value::ConstArray>(obj, "textures"))
             {
-                u16 tex_type = get_format_field(texture, "type");
+                u32 tex_type = get_format_field(texture, "type");
                 acul::shared_ptr<UMBFRoot> asset;
                 switch (tex_type)
                 {
@@ -110,8 +109,7 @@ namespace models
                         LOG_ERROR("Unsupported texture type: %x", tex_type);
                         return false;
                 }
-                if (asset)
-                    _textures.push_back(asset);
+                if (asset) _textures.push_back(asset);
                 else
                 {
                     LOG_ERROR("Failed to deserialize texture");
@@ -165,7 +163,7 @@ namespace models
     {
         for (const auto &texture : get_field<rapidjson::Value::ConstArray>(obj, "textures"))
         {
-            u16 tex_type = get_format_field(texture, "type");
+            u32 tex_type = get_format_field(texture, "type");
             acul::shared_ptr<UMBFRoot> asset;
             switch (tex_type)
             {
@@ -185,8 +183,7 @@ namespace models
                     LOG_ERROR("Unsupported image type: %d", tex_type);
                     return false;
             }
-            if (asset)
-                _textures.push_back(asset);
+            if (asset) _textures.push_back(asset);
             else
             {
                 LOG_ERROR("Failed to deserialize image");
@@ -201,7 +198,7 @@ namespace models
         for (const auto &material : get_field<rapidjson::Value::ConstArray>(obj, "materials"))
         {
             acul::string name = get_field<acul::string>(material, "name");
-            u16 mat_type = get_format_field(material, "type");
+            u32 mat_type = get_format_field(material, "type");
             acul::shared_ptr<UMBFRoot> asset;
             switch (mat_type)
             {
@@ -221,8 +218,7 @@ namespace models
                     LOG_ERROR("Unsupported material type: %d", mat_type);
                     return false;
             }
-            if (asset)
-                _materials.emplace_back(name, asset);
+            if (asset) _materials.emplace_back(name, asset);
             else
             {
                 LOG_ERROR("Failed to deserialize material: %s", name.c_str());
@@ -257,8 +253,12 @@ namespace models
             _header.vendor_version = UMBF_VERSION;
             _header.spec_version = UMBF_VERSION;
             _header.type_sign = get_format_field(obj, "target_type");
-            _header.flags = get_field<bool>(obj, "target_compress", false) ? UMBF_COMPRESSION_PAYLOAD_BIT : 0;
             _checksum = get_field<u64>(obj, "target_checksum", false);
+            if (obj.HasMember("tag"))
+            {
+                if (!obj["tag"].IsUint()) throw acul::runtime_error("Target tag must be a u32");
+                _tag = obj["tag"].GetUint();
+            }
         }
         catch (const std::exception &e)
         {
@@ -270,7 +270,7 @@ namespace models
 
     acul::shared_ptr<UMBFRoot> Library::parse_asset(const rapidjson::Value &obj, FileNode &node)
     {
-        u16 asset_type = get_format_field(obj, "type");
+        u32 asset_type = get_format_field(obj, "type");
         switch (asset_type)
         {
             case umbf::sign_block::format::image:
@@ -334,10 +334,8 @@ namespace models
             for (const auto &child : get_field<rapidjson::Value::ConstArray>(obj, "children"))
             {
                 FileNode child_node;
-                if (parse_file_tree(child, child_node))
-                    node.children.push_back(child_node);
-                else
-                    throw acul::runtime_error("Failed to parse file node: " + child_node.name);
+                if (parse_file_tree(child, child_node)) node.children.push_back(child_node);
+                else throw acul::runtime_error("Failed to parse file node: " + child_node.name);
             }
         }
         catch (const std::exception &e)

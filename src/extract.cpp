@@ -5,29 +5,62 @@
 #include <aecl/image/export.hpp>
 #include <aecl/scene/obj/export.hpp>
 #include <inttypes.h>
+#include <umbf/ext/image/image.hpp>
+#include <umbf/ext/material/material.hpp>
+#include <umbf/ext/scene/scene.hpp>
 #include <umbf/umbf.hpp>
 
-
-bool extract_raw(const umbf::File *file, const acul::string &output)
+namespace
 {
-    if (file->blocks.empty())
+    template <typename T>
+    acul::shared_ptr<T> find_block(const umbf::ReadDescriptor &file, u32 signature)
     {
-        LOG_ERROR("Meta block list is empty");
+        for (auto block = file.begin(); block != file.end(); ++block)
+        {
+            if (block->signature != signature) continue;
+            auto value = umbf::get_block(block);
+            if (!value || value->signature() != signature) return nullptr;
+            return acul::static_pointer_cast<T>(value);
+        }
+        return nullptr;
+    }
+
+    bool find_nested_file(const umbf::ReadDescriptor &parent, u32 type_sign, umbf::ReadDescriptor &result)
+    {
+        for (auto block = parent.begin(); block != parent.end(); ++block)
+            if (block->signature == type_sign)
+                return umbf::create_read_descriptor(parent, block, result, type_sign).success();
         return false;
     }
-    auto &block = file->blocks.front();
-    if (block->signature() != umbf::sign_block::raw)
+
+    u64 block_count(const umbf::ReadDescriptor &file)
     {
-        LOG_ERROR("Wrong block signature: %x. For Raw block expected raw_block.", block->signature());
+        u64 result = 0u;
+        for (auto block = file.begin(); block != file.end(); ++block) ++result;
+        return result;
+    }
+
+    aecl::Asset read_resource(const umbf::ReadDescriptor &source)
+    {
+        if (!source.file) return {};
+        aecl::Asset destination;
+        destination.header = static_cast<const umbf::Header &>(*source.file);
+        for (auto block = source.begin(); block != source.end(); ++block)
+            if (auto value = umbf::get_block(block)) destination.blocks.push_back(std::move(value));
+        return destination;
+    }
+} // namespace
+
+bool extract_raw(const umbf::ReadDescriptor &file, const acul::string &output)
+{
+    auto block = file.begin();
+    while (block != file.end() && block->signature != umbf::sign_block::raw) ++block;
+    if (block == file.end())
+    {
+        LOG_ERROR("Raw payload not found");
         return false;
     }
-    auto raw_block = acul::dynamic_pointer_cast<umbf::RawBlock>(block);
-    if (!raw_block)
-    {
-        LOG_ERROR("Failed to cast block to RawBlock");
-        return false;
-    }
-    return acul::fs::write_binary(output, raw_block->data, raw_block->data_size);
+    return acul::fs::write_binary(output, block->data, block->size);
 }
 
 bool save_image(const acul::string &output, const umbf::Image2D &image)
@@ -94,63 +127,30 @@ bool save_image(const acul::string &output, const umbf::Image2D &image)
     }
 }
 
-bool extract_image(umbf::File *file, const acul::string &output)
+bool extract_image(const umbf::ReadDescriptor &file, const acul::string &output)
 {
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::image;
-    });
-    if (it == file->blocks.end())
+    auto image = find_block<umbf::Image2D>(file, umbf::sign_block::image);
+    if (!image)
     {
         LOG_ERROR("Failed to find image meta");
         return false;
     }
-    auto image = acul::static_pointer_cast<umbf::Image2D>(*it);
     return save_image(output, *image);
 }
 
-void add_texture_to_scene(const umbf::File::Header &header, umbf::File *file, acul::string &texture)
+bool extract_scene(const umbf::ReadDescriptor &file, const acul::string &output)
 {
-    if (header.vendor_sign == UMBF_VENDOR_ID && header.type_sign == umbf::sign_block::format::target)
-    {
-        auto it =
-            std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-                return block->signature() == umbf::sign_block::target;
-            });
-        if (it == file->blocks.end())
-        {
-            LOG_ERROR("Failed to find target meta");
-            texture = "undefined";
-        }
-        else
-        {
-            auto target = acul::static_pointer_cast<umbf::Target>(*it);
-            acul::path url(target->url);
-            if (url.scheme() == "file") texture = url.str();
-            else
-            {
-                LOG_ERROR("Only file scheme supported. Recieved: %s", url.scheme().c_str());
-                texture = "undefined";
-            }
-        }
-    }
-    else
-    {
-        texture = "undefined";
-        LOG_WARN("Embedded texture not supported. Recieved type: %x", header.type_sign);
-    }
-}
-
-bool extract_scene(umbf::File *file, const acul::string &output)
-{
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::scene;
-    });
-    if (it == file->blocks.end())
+    umbf::ReadDescriptor objects, images, materials;
+    if (!find_nested_file(file, umbf::sign_block::format::scene_objects_list, objects) ||
+        !find_nested_file(file, umbf::sign_block::format::images_list, images) ||
+        !find_nested_file(file, umbf::sign_block::format::materials_list, materials))
     {
         LOG_ERROR("Failed to find scene meta");
+        umbf::close_map_descriptor(objects);
+        umbf::close_map_descriptor(images);
+        umbf::close_map_descriptor(materials);
         return false;
     }
-    auto scene = acul::static_pointer_cast<umbf::Scene>(*it);
     auto extension = acul::fs::get_extension(output);
     aecl::scene::IExporter *exporter;
     if (extension == ".obj")
@@ -159,27 +159,65 @@ bool extract_scene(umbf::File *file, const acul::string &output)
         obj->obj_flags = aecl::scene::obj::ObjExportFlagBits::object_policy_objects;
         exporter = obj;
     }
-    else return false;
+    else
+    {
+        umbf::close_map_descriptor(objects);
+        umbf::close_map_descriptor(images);
+        umbf::close_map_descriptor(materials);
+        return false;
+    }
 
     exporter->mesh_flags = aecl::scene::MeshExportFlagBits::export_normals | aecl::scene::MeshExportFlagBits::export_uv;
     exporter->material_flags = aecl::scene::MaterialExportFlags::texture_origin;
-    exporter->objects = scene->objects;
-    exporter->materials = scene->materials;
-    exporter->textures.resize(scene->textures.size());
-    auto &textures = exporter->textures;
-    for (size_t i = 0; i < scene->textures.size(); i++)
-        add_texture_to_scene(scene->textures[i].header, file, textures[i]);
+    for (auto entry = objects.begin(); entry != objects.end(); ++entry)
+    {
+        umbf::ReadDescriptor object_file;
+        if (entry->signature != umbf::sign_block::format::scene_object ||
+            !umbf::create_read_descriptor(objects, entry, object_file, umbf::sign_block::format::scene_object)
+                 .success())
+            continue;
+        auto data = read_resource(object_file);
+        if (data.blocks.empty())
+        {
+            umbf::close_map_descriptor(object_file);
+            continue;
+        }
+        exporter->objects.push_back(std::move(data));
+        umbf::close_map_descriptor(object_file);
+    }
+
+    exporter->textures.resize(static_cast<size_t>(block_count(images)));
+    u64 i = 0u;
+    for (auto entry = images.begin(); entry != images.end(); ++entry, ++i)
+    {
+        umbf::ReadDescriptor texture_file;
+        if (!umbf::create_read_descriptor(images, entry, texture_file).success()) continue;
+        exporter->textures[i] = read_resource(texture_file);
+        umbf::close_map_descriptor(texture_file);
+    }
+
+    for (auto entry = materials.begin(); entry != materials.end(); ++entry)
+    {
+        umbf::ReadDescriptor material;
+        if (!umbf::create_read_descriptor(materials, entry, material).success()) continue;
+        exporter->materials.push_back(read_resource(material));
+        umbf::close_map_descriptor(material);
+    }
 
     bool success = exporter->save();
+    if (!success) LOG_ERROR("Failed to export scene: %s", exporter->error().c_str());
     acul::release(exporter);
+    umbf::close_map_descriptor(objects);
+    umbf::close_map_descriptor(images);
+    umbf::close_map_descriptor(materials);
     return success;
 }
 
-bool extract_library_node(umbf::Library::Node &node, const acul::path &parent)
+bool extract_library_node(umbf::Library::Node &node, const acul::path &parent, const umbf::ReadDescriptor &owner)
 {
     acul::path path = parent / node.name;
     acul::string str = path.str();
-    if (node.is_folder)
+    if (node.is_directory())
     {
         LOG_INFO("Creating directory: %s", str.c_str());
         auto cdr = acul::fs::create_directory(str.c_str());
@@ -189,75 +227,77 @@ bool extract_library_node(umbf::Library::Node &node, const acul::path &parent)
             return false;
         }
         for (auto &child : node.children)
-            if (!extract_library_node(child, path)) return false;
+            if (!extract_library_node(child, path, owner)) return false;
     }
     else
     {
         LOG_INFO("Extracting: %s", str.c_str());
-        switch (node.asset.header.type_sign)
+        umbf::BlockIterator block(owner, node.index);
+        if (!block) return false;
+        switch (block->signature)
         {
-            case umbf::sign_block::format::raw:
-                if (!extract_raw(&node.asset, str)) return false;
+            case umbf::sign_block::raw:
+                if (!acul::fs::write_binary(str, block->data, block->size)) return false;
                 break;
             default:
-                if (!node.asset.save(str))
+            {
+                if (!acul::fs::write_binary(str, block->data, block->size))
                 {
                     LOG_ERROR("Failed to save file: %s", str.c_str());
                     return false;
                 }
+            }
         }
     }
     return true;
 }
 
-bool extract_library(umbf::File *file, const acul::string &output)
+bool extract_library(const umbf::ReadDescriptor &file, const acul::string &output)
 {
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::library;
-    });
-    if (it == file->blocks.end())
+    auto library = find_block<umbf::Library>(file, umbf::sign_block::library);
+    if (!library)
     {
         LOG_ERROR("Failed to find library meta");
         return false;
     }
-    auto library = acul::static_pointer_cast<umbf::Library>(*it);
     if (library->file_tree.name.empty() || library->file_tree.name == ".")
     {
         for (auto &child : library->file_tree.children)
-            if (!extract_library_node(child, output)) return false;
+            if (!extract_library_node(child, output, file)) return false;
         return true;
     }
-    return extract_library_node(library->file_tree, output);
+    return extract_library_node(library->file_tree, output, file);
 }
 
 bool extract_file(const acul::string &input, const acul::string &output)
 {
-    acul::shared_ptr<umbf::File> file;
-    auto res = umbf::File::read_from_disk(input, file);
+    umbf::ReadDescriptor file;
+    auto res = umbf::create_read_descriptor(input, file);
     if (!res.success())
     {
         LOG_ERROR("Failed to load file. Error code: 0x%" PRIx64, static_cast<u64>(res));
         return false;
     }
     bool ret = false;
-    switch (file->header.type_sign)
+    switch (file.file->type_sign)
     {
         case umbf::sign_block::format::raw:
-            ret = extract_raw(file.get(), output);
+            ret = extract_raw(file, output);
             break;
         case umbf::sign_block::format::image:
-            ret = extract_image(file.get(), output);
+            ret = extract_image(file, output);
             break;
         case umbf::sign_block::format::scene:
-            ret = extract_scene(file.get(), output);
+            ret = extract_scene(file, output);
             break;
         case umbf::sign_block::format::library:
-            ret = extract_library(file.get(), output);
+            ret = extract_library(file, output);
             break;
         default:
-            LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
+            LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
             break;
     }
+    umbf::close_map_descriptor(file);
     if (!ret) LOG_ERROR("Failed to extract file: %s", input.c_str());
     return ret;
 }

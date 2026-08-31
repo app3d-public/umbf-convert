@@ -1,5 +1,9 @@
+#include <acul/io/path.hpp>
 #include <acul/log.hpp>
 #include <args.hxx>
+#include <umbf/ext/image/image.hpp>
+#include <umbf/ext/material/material.hpp>
+#include <umbf/ext/scene/scene.hpp>
 #include <umbf/log.hpp>
 #include <umbf/umbf.hpp>
 #include "convert.hpp"
@@ -25,10 +29,9 @@ enum class ConvertFormat
 struct Args
 {
     ArgsCommand command = ArgsCommand::None;
-    acul::string input, output;
+    acul::string input, output, work_dir;
     bool compressed = false;
     bool recursive = false;
-    bool mapped = false;
     ConvertFormat format = ConvertFormat::Raw;
 };
 
@@ -64,9 +67,9 @@ void parse_convert_command(Args &args, args::Subparser &parser)
     args::ValueFlag<std::string> format(parser, "raw|json|image|scene", "File format", {"format"},
                                         args::Options::Required);
     args::ValueFlag<std::string> output(parser, "path", "Output file", {'o', "output"}, args::Options::Required);
+    args::ValueFlag<std::string> work_dir(parser, "path", "Base directory for resource paths", {"work-dir"});
     args::Flag compressed(parser, "compressed", "Compressed", {"compressed"});
     args::Flag recursive(parser, "recursive", "Recursive directory import", {'R', "recursive"});
-    args::Flag mapped(parser, "mapped", "Store raw directory as mapped library", {"mapped"});
     parser.Parse();
     args.input = args::get(input).c_str();
     args.output = args::get(output).c_str();
@@ -74,9 +77,9 @@ void parse_convert_command(Args &args, args::Subparser &parser)
     auto it = std::find(std::begin(values), std::end(values), args::get(format));
     if (it == std::end(values)) throw args::ValidationError("Invalid format");
     args.format = static_cast<ConvertFormat>(std::distance(std::begin(values), it));
+    args.work_dir = work_dir ? acul::string(args::get(work_dir).c_str()) : acul::path(args.input).parent_path().str();
     args.compressed = args::get(compressed);
     args.recursive = args::get(recursive);
-    args.mapped = args::get(mapped);
 }
 
 bool parse_args(int argc, char **argv, Args &args)
@@ -143,19 +146,17 @@ int main(int argc, char **argv)
 #endif
     app_log->set_pattern("%(message)\n");
     acul::log::set_default_logger(app_log);
-    umbf::attach_logger(log_service, app_log);
-    umbf::streams::HashResolver meta_resolver;
-    meta_resolver.streams = {{umbf::sign_block::raw, &umbf::streams::raw_block},
-                             {umbf::sign_block::image, &umbf::streams::image},
-                             {umbf::sign_block::image_atlas, &umbf::streams::image_atlas},
-                             {umbf::sign_block::material, &umbf::streams::material},
-                             {umbf::sign_block::material_info, &umbf::streams::material_info},
-                             {umbf::sign_block::scene, &umbf::streams::scene},
-                             {umbf::sign_block::mesh, &umbf::streams::mesh},
-                             {umbf::sign_block::target, &umbf::streams::target},
-                             {umbf::sign_block::library, &umbf::streams::library},
-                             {umbf::sign_block::mapping, &umbf::streams::mapping_block}};
-    umbf::streams::resolver = &meta_resolver;
+    auto *umbf_log = log_service->add_logger<acul::log::console_logger>("umbf");
+    umbf_log->set_pattern("[umbf] %(message)\n");
+    umbf::attach_logger(log_service, umbf_log);
+    umbf::registry::HashResolver meta_resolver;
+    umbf::insert_default_block_streams(meta_resolver);
+    umbf::insert_image_streams(meta_resolver);
+    umbf::insert_material_streams(meta_resolver);
+    umbf::insert_scene_streams(meta_resolver);
+    umbf::insert_default_segment_codecs(meta_resolver);
+    umbf::insert_image_codecs(meta_resolver);
+    umbf::registry::resolver = &meta_resolver;
     bool success = false;
     try
     {
@@ -174,23 +175,23 @@ int main(int argc, char **argv)
                 {
                     case ConvertFormat::Raw:
                     {
-                        umbf::File file;
-                        if (convert_raw(args.input, args.compressed, args.recursive, args.mapped, file))
-                            checksum = file.save(args.output) ? file.checksum : 0;
+                        umbf::WriteDescriptor file;
+                        if (convert_raw(args.input, args.compressed, args.recursive, file, args.output))
+                            checksum = umbf::save_file(file, args.output) ? file.file->checksum : 0;
                         break;
                     }
                     case ConvertFormat::Image:
                     {
-                        umbf::File file;
-                        if (convert_image(args.input, args.compressed, file))
-                            checksum = file.save(args.output) ? file.checksum : 0;
+                        umbf::WriteDescriptor file;
+                        if (convert_image(args.input, args.compressed, file, args.output))
+                            checksum = umbf::save_file(file, args.output) ? file.file->checksum : 0;
                         break;
                     }
                     case ConvertFormat::Scene:
                         checksum = convert_scene(args.input, args.output, args.compressed);
                         break;
                     case ConvertFormat::Json:
-                        checksum = convert_json(args.input, args.output, args.compressed);
+                        checksum = convert_json(args.input, args.output, args.compressed, args.work_dir);
                         break;
                     default:
                         break;

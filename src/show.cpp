@@ -1,28 +1,52 @@
 #include <acul/log.hpp>
 #include <inttypes.h>
+#include <umbf/ext/image/image.hpp>
+#include <umbf/ext/material/material.hpp>
+#include <umbf/ext/scene/scene.hpp>
 #include <umbf/umbf.hpp>
 
-bool print_raw(umbf::File *file)
+namespace
 {
-    if (file->blocks.empty())
+    template <typename T>
+    acul::shared_ptr<T> find_block(const umbf::ReadDescriptor &file, u32 signature)
     {
-        LOG_ERROR("Meta block list is empty");
-        return false;
+        for (auto block = file.begin(); block != file.end(); ++block)
+        {
+            if (block->signature != signature) continue;
+            auto value = umbf::get_block(block);
+            if (!value || value->signature() != signature) return nullptr;
+            return acul::static_pointer_cast<T>(value);
+        }
+        return nullptr;
     }
-    auto &block = file->blocks.front();
-    if (block->signature() != umbf::sign_block::raw)
+
+    bool find_nested_file(const umbf::ReadDescriptor &parent, u32 type_sign, umbf::ReadDescriptor &result)
     {
-        LOG_ERROR("Wrong block signature: %x. For Raw block expected raw_block.", block->signature());
+        for (auto block = parent.begin(); block != parent.end(); ++block)
+            if (block->signature == type_sign)
+                return umbf::create_read_descriptor(parent, block, result, type_sign).success();
         return false;
     }
 
-    auto raw_block = acul::dynamic_pointer_cast<umbf::RawBlock>(block);
-    if (!raw_block)
+    u64 block_count(const umbf::ReadDescriptor &file)
     {
-        LOG_ERROR("Failed to cast block to RawBlock");
+        u64 result = 0u;
+        for (auto block = file.begin(); block != file.end(); ++block) ++result;
+        return result;
+    }
+} // namespace
+
+bool print_raw(const umbf::ReadDescriptor &file)
+{
+    auto block = file.begin();
+    while (block != file.end() && block->signature != umbf::sign_block::raw) ++block;
+    if (block == file.end())
+    {
+        LOG_ERROR("Raw payload not found");
         return false;
     }
-    LOG_INFO("Data size: %zu", raw_block->data_size);
+
+    LOG_INFO("Data size: %" PRIu64, block->size);
     return true;
 }
 
@@ -33,18 +57,15 @@ void print_image_atlas(const acul::shared_ptr<umbf::Atlas> &atlas)
     LOG_INFO("padding: %d", atlas->padding);
 }
 
-bool print_image(umbf::File *file)
+bool print_image(const umbf::ReadDescriptor &file)
 {
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::image;
-    });
-    if (it == file->blocks.end())
+    auto image = find_block<umbf::Image2D>(file, umbf::sign_block::image);
+    if (!image)
     {
         LOG_ERROR("Failed to find image meta");
         return false;
     }
 
-    auto image = acul::static_pointer_cast<umbf::Image2D>(*it);
     LOG_INFO("-------------image meta--------------");
     LOG_INFO("width: %d", image->width);
     LOG_INFO("height: %d", image->height);
@@ -59,159 +80,119 @@ bool print_image(umbf::File *file)
     LOG_INFO("size: %" PRIu64, image->size());
     acul::release(image->pixels);
 
-    auto atlas_it =
-        std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-            return block->signature() == umbf::sign_block::image_atlas;
-        });
-    if (atlas_it != file->blocks.end()) print_image_atlas(acul::static_pointer_cast<umbf::Atlas>(*atlas_it));
+    if (auto atlas = find_block<umbf::Atlas>(file, umbf::sign_block::image_atlas)) print_image_atlas(atlas);
 
     return true;
 }
 
-bool print_scene(umbf::File *file)
+bool print_scene(const umbf::ReadDescriptor &file)
 {
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::scene;
-    });
-    if (it == file->blocks.end())
+    umbf::ReadDescriptor objects, textures, materials;
+    if (!find_nested_file(file, umbf::sign_block::format::scene_objects_list, objects) ||
+        !find_nested_file(file, umbf::sign_block::format::images_list, textures) ||
+        !find_nested_file(file, umbf::sign_block::format::materials_list, materials))
     {
         LOG_ERROR("Failed to find scene meta");
+        umbf::close_map_descriptor(objects);
+        umbf::close_map_descriptor(textures);
+        umbf::close_map_descriptor(materials);
         return false;
     }
-    auto scene = acul::static_pointer_cast<umbf::Scene>(*it);
     LOG_INFO("-------------scene meta--------------");
-    auto &objects = scene->objects;
-    LOG_INFO("Objects size: %zu", objects.size());
-    for (auto &object : objects)
+    LOG_INFO("Objects size: %" PRIu64, block_count(objects));
+    u64 i = 0u;
+    for (auto entry = objects.begin(); entry != objects.end(); ++entry, ++i)
     {
+        umbf::ReadDescriptor object_file;
+        if (entry->signature != umbf::sign_block::format::scene_object ||
+            !umbf::create_read_descriptor(objects, entry, object_file, umbf::sign_block::format::scene_object).success())
+            continue;
+        auto object = find_block<umbf::ObjectInfo>(object_file, umbf::sign_block::object_info);
+        if (!object)
+        {
+            umbf::close_map_descriptor(object_file);
+            continue;
+        }
         LOG_INFO("-------------------------------------");
-        LOG_INFO("id: %" PRIx64, object.id);
-        LOG_INFO("name: %s", object.name.c_str());
-        if (object.meta.begin() == object.meta.end()) LOG_INFO("neta: no");
-        else
-            for (auto &block : object.meta) LOG_INFO("Meta block signature: 0x%08x", block->signature());
+        LOG_INFO("id: %" PRIx64, object->id);
+        LOG_INFO("name: %s", object->name.c_str());
+        LOG_INFO("object segments: %zu", object_file.file->sg_table.size());
+        umbf::close_map_descriptor(object_file);
     }
     LOG_INFO("------------textures info------------");
-    LOG_INFO("textures size: %zu", scene->textures.size());
-    int count = 0;
-    for (auto &texture : scene->textures)
+    LOG_INFO("textures size: %" PRIu64, block_count(textures));
+    i = 0u;
+    for (auto entry = textures.begin(); entry != textures.end(); ++entry, ++i)
     {
-        switch (texture.header.type_sign)
+        umbf::ReadDescriptor texture;
+        if (umbf::create_read_descriptor(textures, entry, texture).success())
         {
-            case umbf::sign_block::format::none:
-                LOG_WARN("#%d | type: none", count);
-                break;
-            case umbf::sign_block::format::target:
-                LOG_INFO("#%d | type: target", count);
-                break;
-            case umbf::sign_block::format::image:
-                LOG_INFO("#%d | type: image", count);
-                break;
-            default:
-                LOG_ERROR("#%d | incompatible type: %hx", count, texture.header.type_sign);
-                break;
+            LOG_INFO("#%" PRIu64 " | file: %08x", i, texture.file->type_sign);
+            umbf::close_map_descriptor(texture);
         }
-        ++count;
     }
     LOG_INFO("-----------materials info------------");
-    LOG_INFO("materials size: %zu", scene->materials.size());
-    count = 0;
-    for (auto &asset : scene->materials)
+    LOG_INFO("materials size: %" PRIu64, block_count(materials));
+    i = 0u;
+    for (auto entry = materials.begin(); entry != materials.end(); ++entry, ++i)
     {
-        switch (asset.header.type_sign)
+        umbf::ReadDescriptor material;
+        if (umbf::create_read_descriptor(materials, entry, material).success())
         {
-            case umbf::sign_block::format::none:
-                LOG_WARN("#%d | type: none", count++);
-                break;
-            case umbf::sign_block::format::target:
-                LOG_INFO("#%d | type: target", count++);
-                break;
-            case umbf::sign_block::format::material:
-            {
-                LOG_INFO("#%d | type: Material", count++);
-                break;
-            }
-            default:
-                LOG_ERROR("#%d | incompatible type: %hx", count++, asset.header.type_sign);
-                break;
-        }
-        auto info_it = std::find_if(asset.blocks.begin(), asset.blocks.end(),
-                                    [](auto &block) { return block->signature() == umbf::sign_block::material_info; });
-        if (info_it != asset.blocks.end())
-        {
-            auto mat_info = acul::static_pointer_cast<umbf::MaterialInfo>(*info_it);
-            LOG_INFO("   | id:   %" PRIx64, mat_info->id);
-            LOG_INFO("   | name: %s", mat_info->name.c_str());
+            LOG_INFO("#%" PRIu64 " | file: %08x", i, material.file->type_sign);
+            umbf::close_map_descriptor(material);
         }
     }
+    umbf::close_map_descriptor(objects);
+    umbf::close_map_descriptor(textures);
+    umbf::close_map_descriptor(materials);
     return true;
 }
 
-bool print_target(umbf::File *file)
+bool print_target(const umbf::ReadDescriptor &file)
 {
-    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::target)
+    if (file.file->vendor_sign != UMBF_VENDOR_ID || file.file->type_sign != umbf::sign_block::format::target)
     {
-        LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
+        LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
         return false;
     }
 
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::target;
-    });
-    if (it == file->blocks.end())
+    auto target = find_block<umbf::Target>(file, umbf::sign_block::target);
+    if (!target)
     {
         LOG_ERROR("Failed to find target meta");
         return false;
     }
 
-    auto target = acul::static_pointer_cast<umbf::Target>(*it);
     LOG_INFO("------------target meta--------------");
     LOG_INFO("url: %s", target->url.c_str());
+    LOG_INFO("tag: %u", target->tag);
     LOG_INFO("vendor_id: %x", target->header.vendor_sign);
     LOG_INFO("version: %x", target->header.vendor_version);
     LOG_INFO("spec version: %x", target->header.spec_version);
     LOG_INFO("checksum: %u", target->checksum);
     LOG_INFO("type: %x", target->header.type_sign);
-    LOG_INFO("flags: 0x%02x", target->header.flags);
     return true;
 }
 
-bool print_material(umbf::File *file)
+bool print_material(const umbf::ReadDescriptor &file)
 {
-    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::material)
+    if (file.file->vendor_sign != UMBF_VENDOR_ID || file.file->type_sign != umbf::sign_block::format::material)
     {
-        LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
+        LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
         return false;
     }
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::material;
-    });
-    if (it == file->blocks.end())
+    auto material = find_block<umbf::Material>(file, umbf::sign_block::material);
+    if (!material)
     {
         LOG_ERROR("Failed to find material meta");
         return false;
     }
-    auto material = acul::static_pointer_cast<umbf::Material>(*it);
     LOG_INFO("------------material meta--------------");
-    LOG_INFO("textures size: %zu", material->textures.size());
-    for (size_t i = 0; i < material->textures.size(); ++i)
-    {
-        auto &texture = material->textures[i];
-        if (texture.header.type_sign == umbf::sign_block::format::image) LOG_INFO("    %zu | embedded image", i);
-        else if (texture.header.type_sign == umbf::sign_block::format::target)
-        {
-            auto tit = std::find_if(texture.blocks.begin(), texture.blocks.end(),
-                                    [](auto &block) { return block->signature() == umbf::sign_block::target; });
-            if (tit == texture.blocks.end())
-            {
-                LOG_ERROR("Failed to find target meta");
-                return false;
-            }
-            auto target = acul::static_pointer_cast<umbf::Target>(*tit);
-            LOG_INFO("    %zu | %s", i, target->url.c_str());
-        }
-        else LOG_WARN("    %zu | unknown type (%x)", i, texture.header.type_sign);
-    }
+    umbf::ReadDescriptor textures;
+    const bool has_textures = find_nested_file(file, umbf::sign_block::format::images_list, textures);
+    LOG_INFO("textures size: %" PRIu64, has_textures ? block_count(textures) : 0u);
+    if (has_textures) umbf::close_map_descriptor(textures);
     LOG_INFO("albedo:");
     LOG_INFO("   rgb: %f %f %f", material->albedo.rgb.x, material->albedo.rgb.y, material->albedo.rgb.z);
     LOG_INFO("   textured: %s", material->albedo.textured ? "true" : "false");
@@ -222,7 +203,8 @@ bool print_material(umbf::File *file)
 void print_file_hierarchy(const umbf::Library::Node &node, int depth = 0, const acul::string &prefix = "")
 {
     if (depth == 0 && !node.name.empty() && node.name != ".") LOG_INFO("| %s", node.name.c_str());
-    else LOG_INFO("%s%s %s", prefix.c_str(), (const char *)(node.is_folder ? "|----" : "|____"), node.name.c_str());
+    else
+        LOG_INFO("%s%s %s", prefix.c_str(), (const char *)(node.is_directory() ? "|----" : "|____"), node.name.c_str());
 
     acul::string newPrefix = prefix + (depth > 0 ? "|     " : "");
 
@@ -231,66 +213,74 @@ void print_file_hierarchy(const umbf::Library::Node &node, int depth = 0, const 
                              i == node.children.size() - 1 ? prefix + (depth > 0 ? "      " : "") : newPrefix);
 }
 
-bool print_library(umbf::File *file)
+bool print_library(const umbf::ReadDescriptor &file)
 {
-    if (file->header.vendor_sign != UMBF_VENDOR_ID || file->header.type_sign != umbf::sign_block::format::library)
+    if (file.file->vendor_sign != UMBF_VENDOR_ID || file.file->type_sign != umbf::sign_block::format::library)
     {
-        LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
+        LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
         return false;
     }
-    auto it = std::find_if(file->blocks.begin(), file->blocks.end(), [](const acul::shared_ptr<umbf::Block> &block) {
-        return block->signature() == umbf::sign_block::library;
-    });
-    if (it == file->blocks.end())
+    auto library = find_block<umbf::Library>(file, umbf::sign_block::library);
+    if (!library)
     {
         LOG_ERROR("Failed to find library meta");
         return false;
     }
-    auto library = acul::static_pointer_cast<umbf::Library>(*it);
     LOG_INFO("------------library meta--------------");
     if (library->file_tree.name.empty() || library->file_tree.name == ".")
     {
-        for (const auto &child : library->file_tree.children)
-            print_file_hierarchy(child);
+        for (const auto &child : library->file_tree.children) print_file_hierarchy(child);
     }
-    else
-        print_file_hierarchy(library->file_tree);
+    else print_file_hierarchy(library->file_tree);
     return true;
 }
 
 bool show_file(const acul::string &path)
 {
-    acul::shared_ptr<umbf::File> file;
-    acul::op_result res = umbf::File::read_from_disk(path, file);
+    umbf::ReadDescriptor file;
+    acul::op_result res = umbf::create_read_descriptor(path, file);
     if (!res.success())
     {
         LOG_ERROR("Failed to load file. Error code: 0x%016" PRIx64, static_cast<u64>(res));
         return false;
     }
-    LOG_INFO("vendor sign: %x", file->header.vendor_sign);
-    LOG_INFO("vendor version: %x", file->header.vendor_version);
-    LOG_INFO("spec version: %x", file->header.spec_version);
-    LOG_INFO("type sign: %x", file->header.type_sign);
-    LOG_INFO("flags: 0x%02x", file->header.flags);
-    LOG_INFO("checksum: %u", file->checksum);
-    if (file->header.vendor_sign != UMBF_VENDOR_ID) return true;
+    LOG_INFO("vendor sign: %x", file.file->vendor_sign);
+    LOG_INFO("vendor version: %x", file.file->vendor_version);
+    LOG_INFO("spec version: %x", file.file->spec_version);
+    LOG_INFO("type sign: %x", file.file->type_sign);
+    LOG_INFO("segments: %zu", file.file->sg_table.size());
+    LOG_INFO("checksum: %u", file.file->checksum);
+    if (file.file->vendor_sign != UMBF_VENDOR_ID)
+    {
+        umbf::close_map_descriptor(file);
+        return true;
+    }
 
-    switch (file->header.type_sign)
+    bool result = false;
+    switch (file.file->type_sign)
     {
         case umbf::sign_block::format::image:
-            return print_image(file.get());
+            result = print_image(file);
+            break;
         case umbf::sign_block::format::target:
-            return print_target(file.get());
+            result = print_target(file);
+            break;
         case umbf::sign_block::format::library:
-            return print_library(file.get());
+            result = print_library(file);
+            break;
         case umbf::sign_block::format::scene:
-            return print_scene(file.get());
+            result = print_scene(file);
+            break;
         case umbf::sign_block::format::material:
-            return print_material(file.get());
+            result = print_material(file);
+            break;
         case umbf::sign_block::format::raw:
-            return print_raw(file.get());
+            result = print_raw(file);
+            break;
         default:
-            LOG_ERROR("Unsupported file type: %x", file->header.type_sign);
-            return false;
+            LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
+            break;
     }
+    umbf::close_map_descriptor(file);
+    return result;
 }

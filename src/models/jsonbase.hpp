@@ -14,6 +14,8 @@ namespace models
 
         bool deserialize_from_file(const acul::string &path);
 
+        const acul::string &error() const noexcept { return _error; }
+
         bool deserialize_string(const char *s, rapidjson::Document &object)
         {
             if (!init_document(s, object)) return false;
@@ -30,6 +32,8 @@ namespace models
 
     protected:
         static bool init_document(const acul::string &s, rapidjson::Document &doc);
+
+        acul::string _error;
     };
 
     template <typename T>
@@ -37,7 +41,8 @@ namespace models
 
     u32 get_image_type(const rapidjson::Value &obj, const char *key, bool required);
 
-    u16 get_format_field(const rapidjson::Value &obj, const char *key);
+    u32 get_format_field(const rapidjson::Value &obj, const char *key);
+
 } // namespace models
 
 #endif

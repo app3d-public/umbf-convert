@@ -1,6 +1,9 @@
 #pragma once
 
 #include <umbf/umbf.hpp>
+#include <umbf/ext/image/image.hpp>
+#include <umbf/ext/material/material.hpp>
+#include <umbf/ext/scene/scene.hpp>
 #include "jsonbase.hpp"
 
 namespace models
@@ -8,19 +11,19 @@ namespace models
     class UMBFRoot : public JsonBase
     {
     public:
-        u16 type_sign = umbf::sign_block::format::none;
+        u32 type_sign = umbf::sign_block::format::none;
 
         UMBFRoot() : UMBFRoot(umbf::sign_block::format::none) {}
         virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
     protected:
-        UMBFRoot(u16 type) : type_sign(type) {}
+        UMBFRoot(u32 type) : type_sign(type) {}
     };
 
     class IPath final : public UMBFRoot
     {
     public:
-        IPath(u16 type_id) : UMBFRoot(type_id) {}
+        IPath(u32 type_id) : UMBFRoot(type_id) {}
         virtual bool deserialize_object(const rapidjson::Value &obj) override;
 
         void path(const acul::string &path) { _path = path; }
@@ -139,12 +142,15 @@ namespace models
 
         acul::string url() const { return _url; }
 
-        umbf::File::Header header() const { return _header; }
+        const umbf::Header &header() const { return _header; }
+
+        u32 tag() const { return _tag; }
 
         u32 checksum() const { return _checksum; }
 
     private:
-        umbf::File::Header _header;
+        umbf::Header _header;
+        u32 _tag = 0u;
         acul::string _url;
         u32 _checksum;
     };
@@ -163,9 +169,7 @@ namespace models
         explicit Library() : UMBFRoot(umbf::sign_block::format::library) {}
 
         virtual bool deserialize_object(const rapidjson::Value &obj) override
-        {
-            return parse_file_tree(obj, _file_tree);
-        }
+        { return parse_file_tree(obj, _file_tree); }
 
         const FileNode &file_tree() const { return _file_tree; }
 

@@ -3,7 +3,7 @@
     "textures": [
         {
             "type": "image",
-            "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/tex/devCheck.jpg"
+            "path": "test_image.png"
         }
     ],
     "albedo": {

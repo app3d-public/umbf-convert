@@ -9,7 +9,7 @@
                     "name": "devCheck",
                     "asset": {
                         "type": "image",
-                        "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/tex/devCheck.jpg"
+                        "path": "test_image.png"
                     }
                 }
             ],
@@ -26,7 +26,7 @@
                         "textures": [
                             {
                                 "type": "image",
-                                "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/tex/devCheck.jpg"
+                                "path": "test_image.png"
                             }
                         ],
                         "albedo": {
@@ -52,7 +52,7 @@
                         "type": "scene",
                         "meshes": [
                             {
-                                "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj"
+                                "path": "cube.obj"
                             }
                         ],
                         "textures": [],

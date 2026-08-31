@@ -3,7 +3,7 @@
     "compress": true,
     "meshes": [
         {
-            "path": "@CMAKE_SOURCE_DIR@/assets/devlib/source/meshes/detail.obj",
+            "path": "cube.obj",
             "mat_id": 0
         }
     ],
