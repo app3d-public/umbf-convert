@@ -54,12 +54,12 @@ int main(int argc, char **argv)
             }
             assert(!entry.failed() && block_count == segment.block_count && found_info && found_mesh);
             ++object_count;
-            umbf::close_map_descriptor(object);
+            umbf::close_read_descriptor(object);
         }
         assert(!object_entry.failed());
-        umbf::close_map_descriptor(objects);
+        umbf::close_read_descriptor(objects);
     }
     assert(!list_entry.failed() && object_count > 0u);
-    umbf::close_map_descriptor(scene);
+    umbf::close_read_descriptor(scene);
     umbf::registry::resolver = nullptr;
 }

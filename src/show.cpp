@@ -93,9 +93,9 @@ bool print_scene(const umbf::ReadDescriptor &file)
         !find_nested_file(file, umbf::sign_block::format::materials_list, materials))
     {
         LOG_ERROR("Failed to find scene meta");
-        umbf::close_map_descriptor(objects);
-        umbf::close_map_descriptor(textures);
-        umbf::close_map_descriptor(materials);
+        umbf::close_read_descriptor(objects);
+        umbf::close_read_descriptor(textures);
+        umbf::close_read_descriptor(materials);
         return false;
     }
     LOG_INFO("-------------scene meta--------------");
@@ -110,14 +110,14 @@ bool print_scene(const umbf::ReadDescriptor &file)
         auto object = find_block<umbf::ObjectInfo>(object_file, umbf::sign_block::object_info);
         if (!object)
         {
-            umbf::close_map_descriptor(object_file);
+            umbf::close_read_descriptor(object_file);
             continue;
         }
         LOG_INFO("-------------------------------------");
         LOG_INFO("id: %" PRIx64, object->id);
         LOG_INFO("name: %s", object->name.c_str());
         LOG_INFO("object segments: %zu", object_file.file->sg_table.size());
-        umbf::close_map_descriptor(object_file);
+        umbf::close_read_descriptor(object_file);
     }
     LOG_INFO("------------textures info------------");
     LOG_INFO("textures size: %" PRIu64, block_count(textures));
@@ -128,7 +128,7 @@ bool print_scene(const umbf::ReadDescriptor &file)
         if (umbf::create_read_descriptor(textures, entry, texture).success())
         {
             LOG_INFO("#%" PRIu64 " | file: %08x", i, texture.file->type_sign);
-            umbf::close_map_descriptor(texture);
+            umbf::close_read_descriptor(texture);
         }
     }
     LOG_INFO("-----------materials info------------");
@@ -140,12 +140,12 @@ bool print_scene(const umbf::ReadDescriptor &file)
         if (umbf::create_read_descriptor(materials, entry, material).success())
         {
             LOG_INFO("#%" PRIu64 " | file: %08x", i, material.file->type_sign);
-            umbf::close_map_descriptor(material);
+            umbf::close_read_descriptor(material);
         }
     }
-    umbf::close_map_descriptor(objects);
-    umbf::close_map_descriptor(textures);
-    umbf::close_map_descriptor(materials);
+    umbf::close_read_descriptor(objects);
+    umbf::close_read_descriptor(textures);
+    umbf::close_read_descriptor(materials);
     return true;
 }
 
@@ -192,7 +192,7 @@ bool print_material(const umbf::ReadDescriptor &file)
     umbf::ReadDescriptor textures;
     const bool has_textures = find_nested_file(file, umbf::sign_block::format::images_list, textures);
     LOG_INFO("textures size: %" PRIu64, has_textures ? block_count(textures) : 0u);
-    if (has_textures) umbf::close_map_descriptor(textures);
+    if (has_textures) umbf::close_read_descriptor(textures);
     LOG_INFO("albedo:");
     LOG_INFO("   rgb: %f %f %f", material->albedo.rgb.x, material->albedo.rgb.y, material->albedo.rgb.z);
     LOG_INFO("   textured: %s", material->albedo.textured ? "true" : "false");
@@ -252,7 +252,7 @@ bool show_file(const acul::string &path)
     LOG_INFO("checksum: %u", file.file->checksum);
     if (file.file->vendor_sign != UMBF_VENDOR_ID)
     {
-        umbf::close_map_descriptor(file);
+        umbf::close_read_descriptor(file);
         return true;
     }
 
@@ -281,6 +281,6 @@ bool show_file(const acul::string &path)
             LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
             break;
     }
-    umbf::close_map_descriptor(file);
+    umbf::close_read_descriptor(file);
     return result;
 }

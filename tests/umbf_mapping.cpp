@@ -68,10 +68,10 @@ int main(int argc, char **argv)
     assert(umbf::create_write_descriptor(argv[1], header, writer).success());
     auto *probe = umbf::add_segment(writer, probe_signature);
     umbf::add_raw_block(writer, first, sizeof(first), probe);
-    umbf::add_file(writer, nested_writer, nullptr, 0xf1234567u);
+    umbf::add_file(writer, nested_writer);
     assert(umbf::finalize_file(writer));
-    umbf::close_map_descriptor(nested_writer);
-    umbf::close_map_descriptor(writer);
+    umbf::close_write_descriptor(nested_writer);
+    umbf::close_write_descriptor(writer);
 
     umbf::ReadDescriptor parent;
     assert(umbf::create_read_descriptor(argv[1], parent).success());
@@ -87,12 +87,13 @@ int main(int argc, char **argv)
     ++entry;
     assert(decode_count == 2u);
     assert(entry->signature == header.type_sign);
-    assert(entry->tag == 0xf1234567u);
+    // A nested file is not a Block instance and therefore has no block tag.
+    assert(entry->tag == 0u);
     umbf::ReadDescriptor child;
     assert(umbf::create_read_descriptor(parent, entry, child).success());
     assert(child.mapping.get() == parent.mapping.get());
     entry = {};
-    umbf::close_map_descriptor(parent);
+    umbf::close_read_descriptor(parent);
 
     // Child metadata and bytes remain valid after closing the parent descriptor.
     verify_checksum(child);
@@ -104,7 +105,7 @@ int main(int argc, char **argv)
     assert(block->size == 0u);
     ++block;
     assert(block == child.end() && !block.failed());
-    umbf::close_map_descriptor(child);
+    umbf::close_read_descriptor(child);
 
     // Reject invalid table locations/descriptors and truncated input without accessing unmapped bytes.
     acul::vector<char> bytes;
@@ -148,12 +149,12 @@ int main(int argc, char **argv)
     // Empty files consist only of the header and footer; no table count is stored.
     assert(umbf::create_write_descriptor(bad_path, header, writer).success());
     assert(umbf::finalize_file(writer));
-    umbf::close_map_descriptor(writer);
+    umbf::close_write_descriptor(writer);
     assert(umbf::create_read_descriptor(bad_path, parent).success());
     assert(parent.file->sg_table.empty() && parent.file->checksum == 0u);
     assert(parent.begin() == parent.end());
     assert(parent.file_size == fixed_header_size + footer_size);
-    umbf::close_map_descriptor(parent);
+    umbf::close_read_descriptor(parent);
     assert(acul::fs::remove_file(bad_path.c_str()).success());
     umbf::registry::resolver = nullptr;
 }

@@ -71,7 +71,7 @@ int main(int argc, char **argv)
     assert(umbf::finalize_file(builder));
     assert(acul::fs::ftell(builder.fd) == final_position);
     const auto checksum = builder.file->checksum;
-    umbf::close_map_descriptor(builder);
+    umbf::close_write_descriptor(builder);
 
     umbf::ReadDescriptor descriptor;
     assert(umbf::create_read_descriptor(argv[1], descriptor).success());
@@ -131,6 +131,6 @@ int main(int argc, char **argv)
     }
     assert(block == umbf::BlockIterator{});
 
-    umbf::close_map_descriptor(descriptor);
+    umbf::close_read_descriptor(descriptor);
     return 0;
 }

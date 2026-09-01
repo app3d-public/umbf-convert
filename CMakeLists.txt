@@ -18,6 +18,10 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
+if(BUILD_TESTS)
+    enable_testing()
+endif()
+
 if(NOT DEFINED ACBT_LOADED)
     include(cmake/utils.cmake)
 endif()
@@ -38,6 +42,8 @@ if(NOT TARGET aecl)
     add_subdirectory(modules/aecl)
 endif()
 
+set(ARGS_BUILD_UNITTESTS OFF CACHE BOOL "" FORCE)
+set(ARGS_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 add_subdirectory(modules/3rd-party/args)
 
 add_files(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/src" RECURSE)
@@ -51,7 +57,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 if(BUILD_TESTS)
-    enable_testing()
     add_subdirectory(tests)
 endif()
 

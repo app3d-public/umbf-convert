@@ -67,7 +67,7 @@ int main(int argc, char **argv)
         untagged.tag = 0u;
         umbf::add_block(writer, &untagged, segment);
         assert(umbf::finalize_file(writer));
-        umbf::close_map_descriptor(writer);
+        umbf::close_write_descriptor(writer);
 
         umbf::ReadDescriptor reader;
         assert(umbf::create_read_descriptor(argv[1], reader).success());

@@ -146,9 +146,9 @@ bool extract_scene(const umbf::ReadDescriptor &file, const acul::string &output)
         !find_nested_file(file, umbf::sign_block::format::materials_list, materials))
     {
         LOG_ERROR("Failed to find scene meta");
-        umbf::close_map_descriptor(objects);
-        umbf::close_map_descriptor(images);
-        umbf::close_map_descriptor(materials);
+        umbf::close_read_descriptor(objects);
+        umbf::close_read_descriptor(images);
+        umbf::close_read_descriptor(materials);
         return false;
     }
     auto extension = acul::fs::get_extension(output);
@@ -161,9 +161,9 @@ bool extract_scene(const umbf::ReadDescriptor &file, const acul::string &output)
     }
     else
     {
-        umbf::close_map_descriptor(objects);
-        umbf::close_map_descriptor(images);
-        umbf::close_map_descriptor(materials);
+        umbf::close_read_descriptor(objects);
+        umbf::close_read_descriptor(images);
+        umbf::close_read_descriptor(materials);
         return false;
     }
 
@@ -179,11 +179,11 @@ bool extract_scene(const umbf::ReadDescriptor &file, const acul::string &output)
         auto data = read_resource(object_file);
         if (data.blocks.empty())
         {
-            umbf::close_map_descriptor(object_file);
+            umbf::close_read_descriptor(object_file);
             continue;
         }
         exporter->objects.push_back(std::move(data));
-        umbf::close_map_descriptor(object_file);
+        umbf::close_read_descriptor(object_file);
     }
 
     exporter->textures.resize(static_cast<size_t>(block_count(images)));
@@ -193,7 +193,7 @@ bool extract_scene(const umbf::ReadDescriptor &file, const acul::string &output)
         umbf::ReadDescriptor texture_file;
         if (!umbf::create_read_descriptor(images, entry, texture_file).success()) continue;
         exporter->textures[i] = read_resource(texture_file);
-        umbf::close_map_descriptor(texture_file);
+        umbf::close_read_descriptor(texture_file);
     }
 
     for (auto entry = materials.begin(); entry != materials.end(); ++entry)
@@ -201,15 +201,15 @@ bool extract_scene(const umbf::ReadDescriptor &file, const acul::string &output)
         umbf::ReadDescriptor material;
         if (!umbf::create_read_descriptor(materials, entry, material).success()) continue;
         exporter->materials.push_back(read_resource(material));
-        umbf::close_map_descriptor(material);
+        umbf::close_read_descriptor(material);
     }
 
     bool success = exporter->save();
     if (!success) LOG_ERROR("Failed to export scene: %s", exporter->error().c_str());
     acul::release(exporter);
-    umbf::close_map_descriptor(objects);
-    umbf::close_map_descriptor(images);
-    umbf::close_map_descriptor(materials);
+    umbf::close_read_descriptor(objects);
+    umbf::close_read_descriptor(images);
+    umbf::close_read_descriptor(materials);
     return success;
 }
 
@@ -297,7 +297,7 @@ bool extract_file(const acul::string &input, const acul::string &output)
             LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
             break;
     }
-    umbf::close_map_descriptor(file);
+    umbf::close_read_descriptor(file);
     if (!ret) LOG_ERROR("Failed to extract file: %s", input.c_str());
     return ret;
 }
