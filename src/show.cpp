@@ -8,31 +8,30 @@
 namespace
 {
     template <typename T>
-    acul::shared_ptr<T> find_block(const umbf::ReadDescriptor &file, u32 signature)
+    acul::unique_ptr<T> find_block(const umbf::ReadDescriptor &file, u32 signature)
     {
         for (auto block = file.begin(); block != file.end(); ++block)
         {
             if (block->signature != signature) continue;
             auto value = umbf::get_block(block);
             if (!value || value->signature() != signature) return nullptr;
-            return acul::static_pointer_cast<T>(value);
+            return acul::unique_ptr<T>(static_cast<T *>(value.release()));
         }
         return nullptr;
     }
 
-    bool find_nested_file(const umbf::ReadDescriptor &parent, u32 type_sign, umbf::ReadDescriptor &result)
+    template <typename T>
+    acul::unique_ptr<T> find_block(const umbf::ReadDescriptor &file, const umbf::BlockRange &range, u32 signature)
     {
-        for (auto block = parent.begin(); block != parent.end(); ++block)
-            if (block->signature == type_sign)
-                return umbf::create_read_descriptor(parent, block, result, type_sign).success();
-        return false;
-    }
-
-    u64 block_count(const umbf::ReadDescriptor &file)
-    {
-        u64 result = 0u;
-        for (auto block = file.begin(); block != file.end(); ++block) ++result;
-        return result;
+        auto block = umbf::BlockIterator(file, range.first_block);
+        for (u32 index = 0u; index < range.block_count && block != file.end(); ++index, ++block)
+        {
+            if (block->signature != signature) continue;
+            auto value = umbf::get_block(block);
+            if (!value || value->signature() != signature) return nullptr;
+            return acul::unique_ptr<T>(static_cast<T *>(value.release()));
+        }
+        return nullptr;
     }
 } // namespace
 
@@ -42,15 +41,15 @@ bool print_raw(const umbf::ReadDescriptor &file)
     while (block != file.end() && block->signature != umbf::sign_block::raw) ++block;
     if (block == file.end())
     {
-        LOG_ERROR("Raw payload not found");
+        LOG_ERROR("raw payload not found");
         return false;
     }
 
-    LOG_INFO("Data size: %" PRIu64, block->size);
+    LOG_INFO("data size: %" PRIu64, block->size);
     return true;
 }
 
-void print_image_atlas(const acul::shared_ptr<umbf::Atlas> &atlas)
+void print_image_atlas(const umbf::Atlas *atlas)
 {
     LOG_INFO("-------------atlas meta--------------");
     LOG_INFO("rects size: %zu", atlas->pack_data.size());
@@ -62,7 +61,7 @@ bool print_image(const umbf::ReadDescriptor &file)
     auto image = find_block<umbf::Image2D>(file, umbf::sign_block::image);
     if (!image)
     {
-        LOG_ERROR("Failed to find image meta");
+        LOG_ERROR("failed to find image meta");
         return false;
     }
 
@@ -80,72 +79,44 @@ bool print_image(const umbf::ReadDescriptor &file)
     LOG_INFO("size: %" PRIu64, image->size());
     acul::release(image->pixels);
 
-    if (auto atlas = find_block<umbf::Atlas>(file, umbf::sign_block::image_atlas)) print_image_atlas(atlas);
+    if (auto atlas = find_block<umbf::Atlas>(file, umbf::sign_block::image_atlas)) print_image_atlas(atlas.get());
 
     return true;
 }
 
 bool print_scene(const umbf::ReadDescriptor &file)
 {
-    umbf::ReadDescriptor objects, textures, materials;
-    if (!find_nested_file(file, umbf::sign_block::format::scene_objects_list, objects) ||
-        !find_nested_file(file, umbf::sign_block::format::images_list, textures) ||
-        !find_nested_file(file, umbf::sign_block::format::materials_list, materials))
+    auto objects = find_block<umbf::ObjectList>(file, umbf::sign_block::scene_objects_list);
+    auto textures = find_block<umbf::ImageList>(file, umbf::sign_block::images_list);
+    auto materials = find_block<umbf::MaterialList>(file, umbf::sign_block::materials_list);
+    if (!objects || !textures || !materials)
     {
-        LOG_ERROR("Failed to find scene meta");
-        umbf::close_read_descriptor(objects);
-        umbf::close_read_descriptor(textures);
-        umbf::close_read_descriptor(materials);
+        LOG_ERROR("failed to find scene meta");
         return false;
     }
     LOG_INFO("-------------scene meta--------------");
-    LOG_INFO("Objects size: %" PRIu64, block_count(objects));
+    LOG_INFO("objects size: %zu", objects->objects.size());
     u64 i = 0u;
-    for (auto entry = objects.begin(); entry != objects.end(); ++entry, ++i)
+    for (const auto &entry : objects->objects)
     {
-        umbf::ReadDescriptor object_file;
-        if (entry->signature != umbf::sign_block::format::scene_object ||
-            !umbf::create_read_descriptor(objects, entry, object_file, umbf::sign_block::format::scene_object).success())
-            continue;
-        auto object = find_block<umbf::ObjectInfo>(object_file, umbf::sign_block::object_info);
-        if (!object)
-        {
-            umbf::close_read_descriptor(object_file);
-            continue;
-        }
+        auto object = find_block<umbf::ObjectInfo>(file, entry, umbf::sign_block::object_info);
+        if (!object) continue;
         LOG_INFO("-------------------------------------");
+        LOG_INFO("object: #%" PRIu64, i++);
         LOG_INFO("id: %" PRIx64, object->id);
         LOG_INFO("name: %s", object->name.c_str());
-        LOG_INFO("object segments: %zu", object_file.file->sg_table.size());
-        umbf::close_read_descriptor(object_file);
+        LOG_INFO("object blocks: %u", entry.block_count);
     }
     LOG_INFO("------------textures info------------");
-    LOG_INFO("textures size: %" PRIu64, block_count(textures));
+    LOG_INFO("textures size: %zu", textures->images.size());
     i = 0u;
-    for (auto entry = textures.begin(); entry != textures.end(); ++entry, ++i)
-    {
-        umbf::ReadDescriptor texture;
-        if (umbf::create_read_descriptor(textures, entry, texture).success())
-        {
-            LOG_INFO("#%" PRIu64 " | file: %08x", i, texture.file->type_sign);
-            umbf::close_read_descriptor(texture);
-        }
-    }
+    for (const auto &entry : textures->images)
+        LOG_INFO("#%" PRIu64 " | file: %08x", i++, entry.header.type_sign);
     LOG_INFO("-----------materials info------------");
-    LOG_INFO("materials size: %" PRIu64, block_count(materials));
+    LOG_INFO("materials size: %zu", materials->materials.size());
     i = 0u;
-    for (auto entry = materials.begin(); entry != materials.end(); ++entry, ++i)
-    {
-        umbf::ReadDescriptor material;
-        if (umbf::create_read_descriptor(materials, entry, material).success())
-        {
-            LOG_INFO("#%" PRIu64 " | file: %08x", i, material.file->type_sign);
-            umbf::close_read_descriptor(material);
-        }
-    }
-    umbf::close_read_descriptor(objects);
-    umbf::close_read_descriptor(textures);
-    umbf::close_read_descriptor(materials);
+    for (const auto &entry : materials->materials)
+        LOG_INFO("#%" PRIu64 " | file: %08x", i++, entry.header.type_sign);
     return true;
 }
 
@@ -153,14 +124,14 @@ bool print_target(const umbf::ReadDescriptor &file)
 {
     if (file.file->vendor_sign != UMBF_VENDOR_ID || file.file->type_sign != umbf::sign_block::format::target)
     {
-        LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
+        LOG_ERROR("unsupported file type: %x", file.file->type_sign);
         return false;
     }
 
     auto target = find_block<umbf::Target>(file, umbf::sign_block::target);
     if (!target)
     {
-        LOG_ERROR("Failed to find target meta");
+        LOG_ERROR("failed to find target meta");
         return false;
     }
 
@@ -179,20 +150,18 @@ bool print_material(const umbf::ReadDescriptor &file)
 {
     if (file.file->vendor_sign != UMBF_VENDOR_ID || file.file->type_sign != umbf::sign_block::format::material)
     {
-        LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
+        LOG_ERROR("unsupported file type: %x", file.file->type_sign);
         return false;
     }
     auto material = find_block<umbf::Material>(file, umbf::sign_block::material);
     if (!material)
     {
-        LOG_ERROR("Failed to find material meta");
+        LOG_ERROR("failed to find material meta");
         return false;
     }
     LOG_INFO("------------material meta--------------");
-    umbf::ReadDescriptor textures;
-    const bool has_textures = find_nested_file(file, umbf::sign_block::format::images_list, textures);
-    LOG_INFO("textures size: %" PRIu64, has_textures ? block_count(textures) : 0u);
-    if (has_textures) umbf::close_read_descriptor(textures);
+    auto textures = find_block<umbf::ImageList>(file, umbf::sign_block::images_list);
+    LOG_INFO("textures size: %zu", textures ? textures->images.size() : 0u);
     LOG_INFO("albedo:");
     LOG_INFO("   rgb: %f %f %f", material->albedo.rgb.x, material->albedo.rgb.y, material->albedo.rgb.z);
     LOG_INFO("   textured: %s", material->albedo.textured ? "true" : "false");
@@ -217,13 +186,13 @@ bool print_library(const umbf::ReadDescriptor &file)
 {
     if (file.file->vendor_sign != UMBF_VENDOR_ID || file.file->type_sign != umbf::sign_block::format::library)
     {
-        LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
+        LOG_ERROR("unsupported file type: %x", file.file->type_sign);
         return false;
     }
     auto library = find_block<umbf::Library>(file, umbf::sign_block::library);
     if (!library)
     {
-        LOG_ERROR("Failed to find library meta");
+        LOG_ERROR("failed to find library meta");
         return false;
     }
     LOG_INFO("------------library meta--------------");
@@ -241,7 +210,7 @@ bool show_file(const acul::string &path)
     acul::op_result res = umbf::create_read_descriptor(path, file);
     if (!res.success())
     {
-        LOG_ERROR("Failed to load file. Error code: 0x%016" PRIx64, static_cast<u64>(res));
+        LOG_ERROR("failed to load file. Error code: 0x%016" PRIx64, static_cast<u64>(res));
         return false;
     }
     LOG_INFO("vendor sign: %x", file.file->vendor_sign);
@@ -278,7 +247,7 @@ bool show_file(const acul::string &path)
             result = print_raw(file);
             break;
         default:
-            LOG_ERROR("Unsupported file type: %x", file.file->type_sign);
+            LOG_ERROR("unsupported file type: %x", file.file->type_sign);
             break;
     }
     umbf::close_read_descriptor(file);

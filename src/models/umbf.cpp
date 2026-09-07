@@ -12,7 +12,7 @@ namespace models
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Info header Deserialization error: %s", e.what());
+            LOG_ERROR("info header deserialization error: %s", e.what());
             return false;
         }
         return true;
@@ -35,15 +35,15 @@ namespace models
                         _serializer = acul::make_shared<Atlas>();
                         break;
                     default:
-                        throw acul::runtime_error("Unsupported texture type");
+                        throw acul::runtime_error("unsupported texture type");
                 }
             }
-            else LOG_INFO("Texture already deserialized");
+            else LOG_INFO("texture already deserialized");
             return _serializer->deserialize_object(obj);
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Image Deserialization error: %s", e.what());
+            LOG_ERROR("image deserialization error: %s", e.what());
             return false;
         }
     }
@@ -71,13 +71,13 @@ namespace models
             for (const auto &image : get_field<rapidjson::Value::ConstArray>(obj, "images"))
             {
                 acul::shared_ptr<IPath> texture = acul::make_shared<IPath>(umbf::sign_block::format::image);
-                if (!texture->deserialize_object(image)) throw acul::runtime_error("Failed to deserialize image");
+                if (!texture->deserialize_object(image)) throw acul::runtime_error("failed to deserialize image");
                 _images.push_back(texture);
             }
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Image atlas Deserialization error: %s", e.what());
+            LOG_ERROR("image atlas deserialization error: %s", e.what());
             return false;
         }
         return true;
@@ -106,13 +106,13 @@ namespace models
                         break;
                     }
                     default:
-                        LOG_ERROR("Unsupported texture type: %x", tex_type);
+                        LOG_ERROR("unsupported texture type: %x", tex_type);
                         return false;
                 }
                 if (asset) _textures.push_back(asset);
                 else
                 {
-                    LOG_ERROR("Failed to deserialize texture");
+                    LOG_ERROR("failed to deserialize texture");
                     return false;
                 }
             }
@@ -120,7 +120,7 @@ namespace models
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Material Deserialization error: %s", e.what());
+            LOG_ERROR("material deserialization error: %s", e.what());
             return false;
         }
         return true;
@@ -142,7 +142,7 @@ namespace models
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Mesh Deserialization error: %s", e.what());
+            LOG_ERROR("mesh deserialization error: %s", e.what());
             return false;
         }
         return true;
@@ -180,13 +180,13 @@ namespace models
                     break;
                 }
                 default:
-                    LOG_ERROR("Unsupported image type: %d", tex_type);
+                    LOG_ERROR("unsupported image type: %d", tex_type);
                     return false;
             }
             if (asset) _textures.push_back(asset);
             else
             {
-                LOG_ERROR("Failed to deserialize image");
+                LOG_ERROR("failed to deserialize image");
                 return false;
             }
         }
@@ -215,13 +215,13 @@ namespace models
                     break;
                 }
                 default:
-                    LOG_ERROR("Unsupported material type: %d", mat_type);
+                    LOG_ERROR("unsupported material type: %d", mat_type);
                     return false;
             }
             if (asset) _materials.emplace_back(name, asset);
             else
             {
-                LOG_ERROR("Failed to deserialize material: %s", name.c_str());
+                LOG_ERROR("failed to deserialize material: %s", name.c_str());
                 return false;
             }
         }
@@ -238,7 +238,7 @@ namespace models
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Asset scene Deserialization error: %s", e.what());
+            LOG_ERROR("asset scene deserialization error: %s", e.what());
             return false;
         }
         return true;
@@ -256,13 +256,13 @@ namespace models
             _checksum = get_field<u64>(obj, "target_checksum", false);
             if (obj.HasMember("tag"))
             {
-                if (!obj["tag"].IsUint()) throw acul::runtime_error("Target tag must be a u32");
+                if (!obj["tag"].IsUint()) throw acul::runtime_error("target tag must be a u32");
                 _tag = obj["tag"].GetUint();
             }
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Target Deserialization error: %s", e.what());
+            LOG_ERROR("target deserialization error: %s", e.what());
             return false;
         }
         return true;
@@ -276,40 +276,40 @@ namespace models
             case umbf::sign_block::format::image:
             {
                 acul::shared_ptr<Image> asset = acul::make_shared<Image>();
-                if (!asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize image asset");
+                if (!asset->deserialize_object(obj)) throw acul::runtime_error("failed to deserialize image asset");
                 return asset;
             }
             case umbf::sign_block::format::material:
             {
                 acul::shared_ptr<Material> asset = acul::make_shared<Material>();
-                if (!asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize material asset");
+                if (!asset->deserialize_object(obj)) throw acul::runtime_error("failed to deserialize material asset");
                 return asset;
             }
             case umbf::sign_block::format::scene:
             {
                 acul::shared_ptr<Scene> scene_asset = acul::make_shared<Scene>();
                 if (!scene_asset->deserialize_object(obj))
-                    throw acul::runtime_error("Failed to deserialize scene asset");
+                    throw acul::runtime_error("failed to deserialize scene asset");
                 return scene_asset;
             }
             case umbf::sign_block::format::target:
             {
                 acul::shared_ptr<Target> target_asset = acul::make_shared<Target>();
                 if (!target_asset->deserialize_object(obj))
-                    throw acul::runtime_error("Failed to deserialize target asset");
+                    throw acul::runtime_error("failed to deserialize target asset");
                 return target_asset;
             }
             case umbf::sign_block::format::library:
             {
                 acul::shared_ptr<Library> library_asset = acul::make_shared<Library>();
                 if (!library_asset->deserialize_object(obj))
-                    throw acul::runtime_error("Failed to deserialize library asset");
+                    throw acul::runtime_error("failed to deserialize library asset");
                 return library_asset;
             }
             case umbf::sign_block::format::raw:
             {
                 acul::shared_ptr<IPath> raw_asset = acul::make_shared<IPath>(umbf::sign_block::format::raw);
-                if (!raw_asset->deserialize_object(obj)) throw acul::runtime_error("Failed to deserialize raw asset");
+                if (!raw_asset->deserialize_object(obj)) throw acul::runtime_error("failed to deserialize raw asset");
                 return raw_asset;
             }
             default:
@@ -327,7 +327,7 @@ namespace models
             if (!node.is_folder)
             {
                 if (!obj.HasMember("asset") || !obj["asset"].IsObject())
-                    throw acul::runtime_error("Missing 'asset' field");
+                    throw acul::runtime_error("missing 'asset' field");
                 node.asset = parse_asset(obj["asset"], node);
                 return true;
             }
@@ -335,12 +335,12 @@ namespace models
             {
                 FileNode child_node;
                 if (parse_file_tree(child, child_node)) node.children.push_back(child_node);
-                else throw acul::runtime_error("Failed to parse file node: " + child_node.name);
+                else throw acul::runtime_error("failed to parse file node: " + child_node.name);
             }
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("Library Deserialization error: %s", e.what());
+            LOG_ERROR("library deserialization error: %s", e.what());
             return false;
         }
         return true;

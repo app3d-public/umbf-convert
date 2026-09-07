@@ -20,14 +20,17 @@ namespace
         u32 signature() const noexcept override { return value_signature; }
     };
 
-    void *read_value(acul::bin_stream &stream)
+    umbf::Block *read_value(acul::bin_stream &stream)
     {
         auto *value = acul::alloc<ValueBlock>();
         stream.read(value->value);
         return value;
     }
 
-    void write_value(acul::bin_stream &stream, void *value) { stream.write(static_cast<ValueBlock *>(value)->value); }
+    void write_value(acul::bin_stream &stream, umbf::Block *value)
+    {
+        stream.write(static_cast<ValueBlock *>(value)->value);
+    }
 
     const umbf::registry::BlockStream value_stream{read_value, write_value};
 } // namespace
@@ -49,7 +52,8 @@ int main(int argc, char **argv)
     assert(std::fflush(builder.fd) == 0);
     acul::vector<char> initial_header;
     assert(acul::fs::read_binary(argv[1], initial_header));
-    assert(initial_header.size() == sizeof(u32) * 5u);
+    constexpr size_t top_level_header_size = sizeof(u32) * 5u + sizeof(u64) * 2u;
+    assert(initial_header.size() == top_level_header_size);
 
     ValueBlock values[3];
     values[0].value = 11u;
@@ -86,28 +90,19 @@ int main(int argc, char **argv)
     assert(std::fseek(source, 0, SEEK_END) == 0);
     const auto source_size = std::ftell(source);
     assert(source_size > 0);
-    constexpr size_t top_level_header_size = sizeof(u32) * 5u;
-    constexpr size_t footer_size = sizeof(u64) + sizeof(u32);
-    constexpr size_t segment_descriptor_size = sizeof(u64) * 2u + sizeof(u32) * 2u;
+    constexpr size_t segment_descriptor_size = sizeof(u64) * 2u + sizeof(u32) * 3u;
     const size_t table_size = descriptor.file->sg_table.size() * segment_descriptor_size;
-    const size_t payload_size = static_cast<size_t>(source_size) - top_level_header_size - table_size - footer_size;
+    const size_t payload_size = static_cast<size_t>(source_size) - top_level_header_size - table_size;
     acul::vector<char> final_header(top_level_header_size);
     assert(std::fseek(source, 0, SEEK_SET) == 0);
     assert(std::fread(final_header.data(), 1u, final_header.size(), source) == final_header.size());
-    assert(final_header == initial_header);
-    char footer[footer_size];
-    assert(std::fseek(source, -static_cast<long>(footer_size), SEEK_END) == 0);
-    assert(std::fread(footer, 1u, footer_size, source) == footer_size);
-    acul::bin_stream footer_stream(footer, footer_size);
-    u64 stored_size = 0u;
-    u32 stored_checksum = 0u;
-    footer_stream.read(stored_size).read(stored_checksum);
-    assert(stored_size == payload_size && stored_checksum == checksum);
-    acul::vector<char> payload(payload_size);
-    assert(std::fseek(source, static_cast<long>(top_level_header_size), SEEK_SET) == 0);
-    assert(std::fread(payload.data(), 1u, payload.size(), source) == payload.size());
+    acul::bin_stream header_stream(final_header.data() + sizeof(u32) * 5u, sizeof(u64) * 2u);
+    u64 stored_table_size = 0u;
+    u64 stored_payload_size = 0u;
+    header_stream.read(stored_table_size).read(stored_payload_size);
+    assert(stored_table_size == table_size && stored_payload_size == payload_size);
     std::fclose(source);
-    assert(acul::crc32(0u, payload.data(), payload.size()) == checksum);
+    assert(umbf::calculate_checksum(descriptor.file->sg_table) == checksum);
     assert(descriptor.file->checksum == checksum);
 
     umbf::BlockIterator block(descriptor);
@@ -116,8 +111,8 @@ int main(int argc, char **argv)
     assert(first->signature == value_signature);
     auto first_base = first.read();
     assert(first_base && first_base->signature() == value_signature);
-    auto first_value = acul::static_pointer_cast<ValueBlock>(first_base);
-    assert(first_value && first_value->value == values[0].value);
+    auto *first_value = static_cast<ValueBlock *>(first_base.get());
+    assert(first_value->value == values[0].value);
 
     for (size_t index = 1u; index < 3u; ++index)
     {
@@ -125,8 +120,8 @@ int main(int argc, char **argv)
         assert(block->signature == value_signature);
         auto value_base = umbf::get_block(block);
         assert(value_base && value_base->signature() == value_signature);
-        auto value = acul::static_pointer_cast<ValueBlock>(value_base);
-        assert(value && value->value == values[index].value);
+        auto *value = static_cast<ValueBlock *>(value_base.get());
+        assert(value->value == values[index].value);
         ++block;
     }
     assert(block == umbf::BlockIterator{});

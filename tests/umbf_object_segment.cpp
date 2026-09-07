@@ -13,53 +13,62 @@ int main(int argc, char **argv)
 
     umbf::ReadDescriptor scene;
     assert(umbf::create_read_descriptor(argv[1], scene).success());
-    size_t object_count = 0u;
-    auto list_entry = scene.begin();
-    for (; list_entry != scene.end(); ++list_entry)
+
+    acul::unique_ptr<umbf::ObjectList> objects;
+    for (auto entry = scene.begin(); entry != scene.end(); ++entry)
     {
-        if (list_entry->signature != umbf::sign_block::format::scene_objects_list) continue;
-        umbf::ReadDescriptor objects;
-        assert(umbf::create_read_descriptor(scene, list_entry, objects).success());
-        auto object_entry = objects.begin();
-        for (; object_entry != objects.end(); ++object_entry)
-        {
-            assert(object_entry->signature == umbf::sign_block::format::scene_object);
-            umbf::ReadDescriptor object;
-            assert(umbf::create_read_descriptor(objects, object_entry, object).success());
-            assert(object.file->sg_table.size() == 1u);
-            const auto &segment = object.file->sg_table.front();
-            assert(segment.signature == codec && segment.block_count >= 2u);
-            bool found_info = false;
-            bool found_mesh = false;
-            size_t block_count = 0u;
-            auto entry = object.begin();
-            for (; entry != object.end(); ++entry, ++block_count)
-            {
-                if (entry->signature == umbf::sign_block::object_info)
-                {
-                    auto block = umbf::get_block(entry);
-                    assert(block && block->signature() == umbf::sign_block::object_info);
-                    const auto info = acul::static_pointer_cast<umbf::ObjectInfo>(block);
-                    assert(!info->name.empty());
-                    found_info = true;
-                }
-                else if (entry->signature == umbf::sign_block::mesh)
-                {
-                    auto block = umbf::get_block(entry);
-                    assert(block && block->signature() == umbf::sign_block::mesh);
-                    const auto mesh = acul::static_pointer_cast<umbf::mesh::Mesh>(block);
-                    assert(!mesh->geometry.vertices.empty() && !mesh->geometry.faces.empty());
-                    found_mesh = true;
-                }
-            }
-            assert(!entry.failed() && block_count == segment.block_count && found_info && found_mesh);
-            ++object_count;
-            umbf::close_read_descriptor(object);
-        }
-        assert(!object_entry.failed());
-        umbf::close_read_descriptor(objects);
+        if (entry->signature != umbf::sign_block::scene_objects_list) continue;
+        auto block = umbf::get_block(entry);
+        assert(block && block->signature() == umbf::sign_block::scene_objects_list);
+        objects = acul::unique_ptr<umbf::ObjectList>(static_cast<umbf::ObjectList *>(block.release()));
+        break;
     }
-    assert(!list_entry.failed() && object_count > 0u);
+    assert(objects && !objects->objects.empty());
+
+    size_t object_count = 0u;
+    for (const auto &range : objects->objects)
+    {
+        assert(range.block_count >= 2u);
+
+        u64 first = 0u;
+        const umbf::Segment *object_segment = nullptr;
+        for (const auto &segment : scene.file->sg_table)
+        {
+            const u64 end = first + segment.block_count;
+            if (range.first_block >= first && range.first_block + range.block_count <= end)
+            {
+                object_segment = &segment;
+                break;
+            }
+            first = end;
+        }
+        assert(object_segment && object_segment->signature == codec);
+
+        bool found_info = false;
+        bool found_mesh = false;
+        umbf::BlockIterator entry(scene, range.first_block);
+        for (u32 i = 0u; i < range.block_count; ++i, ++entry)
+        {
+            assert(entry != scene.end());
+            auto block = umbf::get_block(entry);
+            assert(block && block->signature() == entry->signature);
+            if (entry->signature == umbf::sign_block::object_info)
+            {
+                const auto *info = static_cast<const umbf::ObjectInfo *>(block.get());
+                assert(!info->name.empty());
+                found_info = true;
+            }
+            else if (entry->signature == umbf::sign_block::mesh)
+            {
+                const auto *mesh = static_cast<const umbf::mesh::Mesh *>(block.get());
+                assert(!mesh->geometry.vertices.empty() && !mesh->geometry.faces.empty());
+                found_mesh = true;
+            }
+        }
+        assert(!entry.failed() && found_info && found_mesh);
+        ++object_count;
+    }
+    assert(object_count > 0u);
     umbf::close_read_descriptor(scene);
     umbf::registry::resolver = nullptr;
 }

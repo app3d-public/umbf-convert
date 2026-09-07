@@ -4,10 +4,10 @@
 
 namespace
 {
-    void check_target(const acul::shared_ptr<umbf::Block> &block, const umbf::Target &expected)
+    void check_target(const acul::unique_ptr<umbf::Block> &block, const umbf::Target &expected)
     {
         assert(block && block->signature() == umbf::sign_block::target);
-        const auto target = acul::static_pointer_cast<umbf::Target>(block);
+        const auto *target = static_cast<const umbf::Target *>(block.get());
         assert(target->url == expected.url && target->tag == expected.tag);
         assert(target->header.vendor_sign == expected.header.vendor_sign);
         assert(target->header.vendor_version == expected.header.vendor_version);
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
         assert(it != reader.end() && it->signature == image.signature() && it->tag == custom_tag);
         auto restored_block = umbf::get_block(it);
         assert(restored_block && restored_block->signature() == image.signature());
-        const auto restored = acul::static_pointer_cast<umbf::Image2D>(restored_block);
+        auto *restored = static_cast<umbf::Image2D *>(restored_block.get());
         assert(restored->tag == custom_tag);
         assert(restored->size() == sizeof(pixels));
         assert(std::memcmp(restored->pixels, pixels, sizeof(pixels)) == 0);
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     untagged.tag = 0u;
     assert(umbf::write_block_to_stream(stream, untagged));
     stream.pos(0u);
-    acul::shared_ptr<umbf::Block> restored;
+    acul::unique_ptr<umbf::Block> restored;
     assert(umbf::read_block_from_stream(stream, restored));
     check_target(restored, cached);
     // Unknown and empty records produce no Block, so there is no tag to inspect.

@@ -81,7 +81,7 @@ add_test(NAME umbf-show_scene_segments
 set_tests_properties(umbf-show_scene_segments PROPERTIES
     DEPENDS umbf-convert_scene_embedded
     LABELS "umbftool"
-    PASS_REGULAR_EXPRESSION "object segments: 1"
+    PASS_REGULAR_EXPRESSION "object blocks: 2"
 )
 
 add_test(NAME umbf-extract_scene_segments

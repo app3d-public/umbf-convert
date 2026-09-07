@@ -198,10 +198,10 @@ int main(int argc, char **argv)
                 }
                 if (checksum != 0)
                 {
-                    LOG_INFO("Success. Checksum: %u", checksum);
+                    LOG_INFO("success. checksum: %u", checksum);
                     success = true;
                 }
-                else LOG_ERROR("Failed to convert file to %s", args.output.c_str());
+                else LOG_ERROR("failed to convert file to %s", args.output.c_str());
             }
             break;
             default:

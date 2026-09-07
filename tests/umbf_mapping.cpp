@@ -29,14 +29,12 @@ namespace
 
     void verify_checksum(const umbf::ReadDescriptor &file)
     {
-        u32 checksum = 0u;
         for (u32 i = 0u; i < file.file->sg_table.size(); ++i)
         {
             acul::vector<char> decoded;
             assert(umbf::read_segment(file, i, decoded).success());
-            checksum = acul::crc32(checksum, decoded.data(), decoded.size());
         }
-        assert(checksum == file.file->checksum);
+        assert(umbf::calculate_checksum(file.file->sg_table) == file.file->checksum);
     }
 } // namespace
 
@@ -112,33 +110,34 @@ int main(int argc, char **argv)
     assert(acul::fs::read_binary(argv[1], bytes));
     const acul::string bad_path = acul::string(argv[1]) + ".invalid";
     const auto original = bytes;
-    constexpr size_t footer_size = sizeof(u64) + sizeof(u32);
-    const size_t payload_size_field = bytes.size() - footer_size;
     constexpr size_t fixed_header_size = sizeof(u32) * 5u;
-    acul::bin_stream offset_stream(bytes.data() + payload_size_field, sizeof(u64));
-    u64 table_offset = 0u;
-    offset_stream.read(table_offset);
-    assert(fixed_header_size + table_offset + sizeof(u32) <= bytes.size());
-    std::memset(bytes.data() + payload_size_field, 0xff, sizeof(u64));
+    constexpr size_t layout_size = sizeof(u64) * 2u;
+    acul::bin_stream layout_stream(bytes.data() + fixed_header_size, layout_size);
+    u64 table_size = 0u;
+    u64 payload_size = 0u;
+    layout_stream.read(table_size).read(payload_size);
+    const size_t table_offset = fixed_header_size + layout_size + static_cast<size_t>(payload_size);
+    assert(table_size && table_offset + table_size == bytes.size());
+    std::memset(bytes.data() + fixed_header_size, 0xff, sizeof(u64));
     assert(acul::fs::write_binary(bad_path, bytes.data(), bytes.size()));
     assert(!umbf::create_read_descriptor(bad_path, parent).success());
     assert(!parent.mapping && !parent.file);
     bytes = original;
-    std::memset(bytes.data() + fixed_header_size + table_offset, 0xff, sizeof(u32));
+    std::memset(bytes.data() + table_offset, 0xff, sizeof(u64));
     assert(acul::fs::write_binary(bad_path, bytes.data(), bytes.size()));
     assert(!umbf::create_read_descriptor(bad_path, parent).success());
     assert(!parent.mapping && !parent.file);
     // Moving the table boundary by one byte leaves an incomplete descriptor.
     bytes = original;
-    assert(table_offset > 0u);
+    assert(table_size > 0u);
     acul::bin_stream malformed_size;
-    malformed_size.write(table_offset - 1u);
-    std::memcpy(bytes.data() + payload_size_field, malformed_size.data(), sizeof(u64));
+    malformed_size.write(table_size - 1u);
+    std::memcpy(bytes.data() + fixed_header_size, malformed_size.data(), sizeof(u64));
     assert(acul::fs::write_binary(bad_path, bytes.data(), bytes.size()));
     assert(!umbf::create_read_descriptor(bad_path, parent).success());
     assert(!parent.mapping && !parent.file);
-    // Missing footer and shifted/truncated table must also fail bounded parsing.
-    assert(acul::fs::write_binary(bad_path, original.data(), original.size() - footer_size));
+    // Missing layout data and a truncated table must also fail bounded parsing.
+    assert(acul::fs::write_binary(bad_path, original.data(), fixed_header_size + layout_size - 1u));
     assert(!umbf::create_read_descriptor(bad_path, parent).success());
     assert(acul::fs::write_binary(bad_path, original.data(), original.size() - 1u));
     assert(!umbf::create_read_descriptor(bad_path, parent).success());
@@ -146,14 +145,14 @@ int main(int argc, char **argv)
     assert(!umbf::create_read_descriptor(bad_path, parent).success());
     assert(acul::fs::remove_file(bad_path.c_str()).success());
 
-    // Empty files consist only of the header and footer; no table count is stored.
+    // Empty files consist only of the header and layout fields; no table count is stored.
     assert(umbf::create_write_descriptor(bad_path, header, writer).success());
     assert(umbf::finalize_file(writer));
     umbf::close_write_descriptor(writer);
     assert(umbf::create_read_descriptor(bad_path, parent).success());
     assert(parent.file->sg_table.empty() && parent.file->checksum == 0u);
     assert(parent.begin() == parent.end());
-    assert(parent.file_size == fixed_header_size + footer_size);
+    assert(parent.file_size == fixed_header_size + layout_size);
     umbf::close_read_descriptor(parent);
     assert(acul::fs::remove_file(bad_path.c_str()).success());
     umbf::registry::resolver = nullptr;

@@ -48,14 +48,14 @@ namespace
     {
         if (!umbf::create_write_descriptor(resource.header, file).success()) return false;
         file.default_segment_signature = !compressed ? UMBF_SEGMENT_RAW : UMBF_SEGMENT_COMPRESSED;
-        umbf::SegmentWriter *object_segment = nullptr;
-        if (resource.header.type_sign == umbf::sign_block::format::scene_object)
+        umbf::SegmentWriter *resource_segment = nullptr;
+        if (resource.header.type_sign == umbf::sign_block::format::none)
         {
             // Object description and content are consumed together; share one physical segment.
-            object_segment = umbf::add_segment(file, file.default_segment_signature);
-            if (!object_segment)
+            resource_segment = umbf::add_segment(file, file.default_segment_signature);
+            if (!resource_segment)
             {
-                LOG_ERROR("Failed to create imported object segment");
+                LOG_ERROR("failed to create imported object segment");
                 return false;
             }
         }
@@ -64,27 +64,130 @@ namespace
         {
             if (!block)
             {
-                LOG_ERROR("Failed to serialize an empty imported UMBF block");
+                LOG_ERROR("failed to serialize an empty imported umbf block");
                 return false;
             }
             try
             {
-                umbf::add_block(file, block.get(), object_segment);
+                auto *segment = resource_segment;
+                if (block->signature() == umbf::sign_block::image)
+                    segment = umbf::add_segment(file, compressed ? UMBF_SEGMENT_COMPRESSED_IMAGE : UMBF_SEGMENT_RAW);
+                umbf::add_block(file, block.get(), segment);
             }
             catch (const std::exception &e)
             {
-                LOG_ERROR("Failed to serialize imported UMBF block 0x%08x: %s", block->signature(), e.what());
+                LOG_ERROR("failed to serialize imported umbf block: signature=0x%08x error=%s", block->signature(),
+                          e.what());
                 return false;
             }
         }
         return true;
     }
 
-    umbf::WriteDescriptor create_file_list(u32 type_sign)
+    bool append_resource(aecl::Asset &destination, aecl::Asset &resource, umbf::BlockRange &range)
     {
-        umbf::WriteDescriptor list;
-        create_file_structure(list, type_sign, false);
-        return list;
+        if (resource.blocks.size() > UINT32_MAX) return false;
+        range.first_block = destination.blocks.size();
+        range.block_count = static_cast<u32>(resource.blocks.size());
+        destination.blocks.insert(destination.blocks.end(), std::make_move_iterator(resource.blocks.begin()),
+                                  std::make_move_iterator(resource.blocks.end()));
+        resource.blocks.clear();
+        return true;
+    }
+
+    bool write_scene_asset(aecl::Asset &asset, umbf::WriteDescriptor &file, bool compressed)
+    {
+        acul::vector<u64> groups(asset.blocks.size(), UINT64_MAX);
+        u64 next_group = 0u;
+        const auto add_range = [&](const umbf::BlockRange &range) {
+            if (range.first_block > groups.size() || range.block_count > groups.size() - range.first_block)
+                return false;
+            const u64 group = next_group++;
+            for (u64 index = range.first_block; index < range.first_block + range.block_count; ++index)
+            {
+                if (groups[index] != UINT64_MAX) return false;
+                groups[index] = group;
+            }
+            return true;
+        };
+        for (const auto &block : asset.blocks)
+        {
+            if (!block) continue;
+            if (block->signature() == umbf::sign_block::scene_objects_list)
+            {
+                for (const auto &range : static_cast<const umbf::ObjectList *>(block.get())->objects)
+                    if (!add_range(range)) return false;
+            }
+            else if (block->signature() == umbf::sign_block::materials_list)
+            {
+                for (const auto &entry : static_cast<const umbf::MaterialList *>(block.get())->materials)
+                    if (!add_range(entry.blocks)) return false;
+            }
+            else if (block->signature() == umbf::sign_block::images_list)
+            {
+                for (const auto &entry : static_cast<const umbf::ImageList *>(block.get())->images)
+                    if (!add_range(entry.blocks)) return false;
+            }
+        }
+
+        umbf::SegmentWriter *segment = nullptr;
+        u64 active_group = UINT64_MAX;
+        for (size_t index = 0u; index < asset.blocks.size(); ++index)
+        {
+            auto &block = asset.blocks[index];
+            if (!block) return false;
+            if (groups[index] != active_group)
+            {
+                segment = nullptr;
+                active_group = groups[index];
+            }
+            if (block->signature() == umbf::sign_block::image)
+            {
+                segment = umbf::add_segment(file, compressed ? UMBF_SEGMENT_COMPRESSED_IMAGE : UMBF_SEGMENT_RAW);
+                if (!segment) return false;
+                umbf::add_block(file, block.get(), segment);
+                segment = nullptr;
+                continue;
+            }
+            if (!segment) segment = umbf::add_segment(file, compressed ? UMBF_SEGMENT_COMPRESSED : UMBF_SEGMENT_RAW);
+            if (!segment) return false;
+            umbf::add_block(file, block.get(), segment);
+        }
+        return true;
+    }
+
+    bool append_scene_resources(aecl::Asset &scene, acul::vector<aecl::Asset> &objects,
+                                acul::vector<aecl::Asset> &materials, acul::vector<aecl::Asset> &images)
+    {
+        auto object_list = acul::make_unique<umbf::ObjectList>();
+        auto *object_list_ptr = object_list.get();
+        scene.blocks.push_back(acul::unique_ptr<umbf::Block>(std::move(object_list)));
+        object_list_ptr->objects.resize(objects.size());
+        for (size_t index = 0u; index < objects.size(); ++index)
+            if (!append_resource(scene, objects[index], object_list_ptr->objects[index])) return false;
+
+        auto material_list = acul::make_unique<umbf::MaterialList>();
+        auto *material_list_ptr = material_list.get();
+        scene.blocks.push_back(acul::unique_ptr<umbf::Block>(std::move(material_list)));
+        material_list_ptr->materials.resize(materials.size());
+        for (size_t index = 0u; index < materials.size(); ++index)
+        {
+            auto &entry = material_list_ptr->materials[index];
+            entry.header = materials[index].header;
+            if (!append_resource(scene, materials[index], entry.blocks)) return false;
+        }
+
+        auto image_list = acul::make_unique<umbf::ImageList>();
+        auto *image_list_ptr = image_list.get();
+        scene.blocks.push_back(acul::unique_ptr<umbf::Block>(std::move(image_list)));
+        image_list_ptr->images.resize(images.size());
+        for (size_t index = 0u; index < images.size(); ++index)
+        {
+            auto &entry = image_list_ptr->images[index];
+            entry.header = images[index].header;
+            if (!append_resource(scene, images[index], entry.blocks)) return false;
+        }
+        return true;
     }
 
     amal::ivec2 find_min_square_atlas_size(const acul::vector<amal::irect> &rects, i32 padding)
@@ -134,7 +237,7 @@ namespace
     {
         if (!acul::fs::read_binary(input, data))
         {
-            LOG_ERROR("Failed to read raw file: %s", input.c_str());
+            LOG_ERROR("failed to read raw file: %s", input.c_str());
             return false;
         }
         return true;
@@ -193,12 +296,12 @@ namespace
         auto lr = acul::fs::list_files(input, files, true);
         if (!lr.success())
         {
-            LOG_ERROR("Failed to list directory: %s", input.c_str());
+            LOG_ERROR("failed to list directory: %s", input.c_str());
             return false;
         }
         if (files.empty())
         {
-            LOG_ERROR("Directory is empty: %s", input.c_str());
+            LOG_ERROR("directory is empty: %s", input.c_str());
             return false;
         }
 
@@ -238,7 +341,7 @@ bool convert_raw(const acul::string &input, bool compressed, bool recursive, umb
     {
         if (!recursive)
         {
-            LOG_ERROR("Directory input for raw conversion requires -R");
+            LOG_ERROR("directory input for raw conversion requires -R");
             return false;
         }
         return convert_raw_directory(input, compressed, file, output);
@@ -248,26 +351,27 @@ bool convert_raw(const acul::string &input, bool compressed, bool recursive, umb
     return convert_raw_file(input, file);
 }
 
-bool convert_image(const acul::string &input, bool compressed, umbf::WriteDescriptor &file,
-                   const acul::string &output)
+namespace
 {
-    auto importer = aecl::image::get_importer_by_path(input);
-    acul::vector<umbf::Image2D> images;
-    umbf::Image2D *pImage = nullptr;
-    bool ret = false;
-    if (importer)
+    bool make_image_asset(const acul::string &input, aecl::Asset &asset)
     {
-        if (importer->load(input, images))
-        {
-            pImage = &images.front();
-            create_file_structure(file, umbf::sign_block::format::image, compressed, output);
-            umbf::add_block(file, pImage);
-            ret = true;
-        }
-        else LOG_ERROR("AECL error: %s", importer->error().c_str());
+        auto importer = aecl::image::get_importer_by_path(input);
+        if (!importer) return false;
+        acul::vector<umbf::Image2D> images;
+        const bool loaded = importer->load(input, images);
+        if (!loaded) LOG_ERROR("aecl error: %s", importer->error().c_str());
         acul::release(importer);
+        if (!loaded || images.empty()) return false;
+        aecl::create_asset_structure(asset, umbf::sign_block::format::image);
+        asset.blocks.push_back(acul::make_unique<umbf::Image2D>(std::move(images.front())));
+        return true;
     }
-    return ret;
+} // namespace
+
+bool convert_image(const acul::string &input, bool compressed, umbf::WriteDescriptor &file, const acul::string &)
+{
+    aecl::Asset asset;
+    return make_image_asset(input, asset) && serialize_resource(asset, compressed, file);
 }
 
 acul::shared_ptr<umbf::Image2D> model_to_image(const models::IPath &model, const acul::string &work_dir)
@@ -279,16 +383,15 @@ acul::shared_ptr<umbf::Image2D> model_to_image(const models::IPath &model, const
     if (importer)
     {
         if (importer->load(path, images)) dst_image = acul::make_shared<umbf::Image2D>(images.front());
-        else LOG_ERROR("AECL error: %s", importer->error().c_str());
+        else LOG_ERROR("aecl error: %s", importer->error().c_str());
         acul::release(importer);
     }
     return dst_image;
 }
 
-bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::WriteDescriptor &file,
-                   const acul::string &work_dir)
+bool make_atlas_asset(const models::Atlas &atlas, aecl::Asset &asset, const acul::string &work_dir)
 {
-    create_file_structure(file, umbf::sign_block::format::image, compressed);
+    aecl::create_asset_structure(asset, umbf::sign_block::format::image);
     auto image_block = acul::make_shared<umbf::Image2D>();
     image_block->format.bytes_per_channel = atlas.bytes_per_channel();
     image_block->format.type = atlas.type();
@@ -303,12 +406,12 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::WriteDescr
         auto pImage = model_to_image(*image, work_dir);
         if (!pImage)
         {
-            LOG_ERROR("Failed to create image: %s", image->path().c_str());
+            LOG_ERROR("failed to create image: %s", image->path().c_str());
             return false;
         }
         if (pImage->channels.size() != image_block->channels.size() || pImage->format != image_block->format)
         {
-            LOG_INFO("Converting image to the atlas format: %s", image->path().c_str());
+            LOG_INFO("converting image to the atlas format: %s", image->path().c_str());
             void *converted = umbf::convert_image(*pImage, image_block->format, image_block->channels.size());
             pImage->pixels = converted;
             pImage->format = image_block->format;
@@ -326,14 +429,21 @@ bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::WriteDescr
                               umbf::MaxRectsTransformBits::none, atlas_block->padding)
              .packed)
     {
-        LOG_ERROR("Failed to pack atlas");
+        LOG_ERROR("failed to pack atlas");
         return false;
     }
     umbf::fill_atlas_pixels(image_block, atlas_block, atlas_dst_images);
 
-    umbf::add_block(file, image_block.get());
-    umbf::add_block(file, atlas_block.get());
+    asset.blocks.push_back(acul::make_unique<umbf::Image2D>(std::move(*image_block)));
+    asset.blocks.push_back(acul::make_unique<umbf::Atlas>(std::move(*atlas_block)));
     return true;
+}
+
+bool convert_atlas(const models::Atlas &atlas, bool compressed, umbf::WriteDescriptor &file,
+                   const acul::string &work_dir)
+{
+    aecl::Asset asset;
+    return make_atlas_asset(atlas, asset, work_dir) && serialize_resource(asset, compressed, file);
 }
 
 bool convert_image(const models::Image &image, bool compressed, umbf::WriteDescriptor &file,
@@ -349,60 +459,98 @@ bool convert_image(const models::Image &image, bool compressed, umbf::WriteDescr
         auto serializer = acul::static_pointer_cast<models::Atlas>(image.serializer());
         return convert_atlas(*serializer, compressed, file, work_dir);
     }
-    LOG_ERROR("Unsupported image type: %x", image.signature());
+    LOG_ERROR("unsupported image type: %x", image.signature());
     return false;
 }
 
 void convert_target(const models::Target &target, bool compressed, umbf::WriteDescriptor &file,
                     const acul::string &work_dir)
 {
-    create_file_structure(file, umbf::sign_block::format::target, compressed);
-    auto block = acul::make_shared<umbf::Target>();
+    aecl::Asset asset;
+    aecl::create_asset_structure(asset, umbf::sign_block::format::target);
+    auto block = acul::make_unique<umbf::Target>();
     block->url = resolve_local_path(target.url(), work_dir);
     block->header = target.header();
     block->checksum = target.checksum();
     block->tag = target.tag();
-    umbf::add_block(file, block.get());
+    asset.blocks.push_back(std::move(block));
+    if (!serialize_resource(asset, compressed, file)) throw acul::runtime_error("Failed to serialize target resource");
 }
 
-bool convert_image(const acul::shared_ptr<models::UMBFRoot> &model, bool compressed, umbf::WriteDescriptor &file,
-                   const acul::string &work_dir)
+bool make_image_asset(const acul::shared_ptr<models::UMBFRoot> &model, aecl::Asset &asset, const acul::string &work_dir)
 {
     switch (model->type_sign)
     {
         case umbf::sign_block::format::image:
         {
             auto image_model = acul::static_pointer_cast<models::Image>(model);
-            return convert_image(*image_model, compressed, file, work_dir);
+            if (image_model->signature() == umbf::sign_block::image)
+            {
+                auto serializer = acul::static_pointer_cast<models::IPath>(image_model->serializer());
+                return make_image_asset(resolve_local_path(serializer->path(), work_dir), asset);
+            }
+            if (image_model->signature() == umbf::sign_block::image_atlas)
+            {
+                auto serializer = acul::static_pointer_cast<models::Atlas>(image_model->serializer());
+                return make_atlas_asset(*serializer, asset, work_dir);
+            }
+            return false;
         }
         case umbf::sign_block::format::target:
         {
-            auto target_model = acul::static_pointer_cast<models::Target>(model);
-            convert_target(*target_model, compressed, file, work_dir);
+            auto target = acul::static_pointer_cast<models::Target>(model);
+            aecl::create_asset_structure(asset, umbf::sign_block::format::target);
+            auto block = acul::make_unique<umbf::Target>();
+            block->url = resolve_local_path(target->url(), work_dir);
+            block->header = target->header();
+            block->checksum = target->checksum();
+            block->tag = target->tag();
+            asset.blocks.push_back(std::move(block));
             return true;
         }
         default:
-            LOG_ERROR("Unsupported texture type: %x", model->type_sign);
             return false;
     }
+}
+
+bool convert_image(const acul::shared_ptr<models::UMBFRoot> &model, bool compressed, umbf::WriteDescriptor &file,
+                   const acul::string &work_dir)
+{
+    aecl::Asset asset;
+    if (!make_image_asset(model, asset, work_dir))
+    {
+        LOG_ERROR("unsupported texture type: %x", model->type_sign);
+        return false;
+    }
+    return serialize_resource(asset, compressed, file);
 }
 
 bool convert_material(const models::Material &material, bool compressed, umbf::WriteDescriptor &file,
                       const acul::string &work_dir)
 {
-    create_file_structure(file, umbf::sign_block::format::material, false);
-    auto block = acul::make_shared<umbf::Material>();
+    aecl::Asset asset;
+    aecl::create_asset_structure(asset, umbf::sign_block::format::material);
+    auto block = acul::make_unique<umbf::Material>();
     block->albedo = material.albedo();
-    auto textures = create_file_list(umbf::sign_block::format::images_list);
+    asset.blocks.push_back(std::move(block));
+    acul::vector<aecl::Asset> textures;
+    textures.reserve(material.textures().size());
     for (auto &texture : material.textures())
     {
-        umbf::WriteDescriptor texture_file;
-        if (convert_image(texture, compressed, texture_file, work_dir)) umbf::add_file(textures, texture_file);
-        else return false;
+        textures.emplace_back();
+        if (!make_image_asset(texture, textures.back(), work_dir)) return false;
     }
-    umbf::add_block(file, block.get());
-    umbf::add_file(file, textures);
-    return true;
+    auto images = acul::make_unique<umbf::ImageList>();
+    auto *images_ptr = images.get();
+    asset.blocks.push_back(std::move(images));
+    images_ptr->images.resize(textures.size());
+    for (size_t index = 0u; index < textures.size(); ++index)
+    {
+        images_ptr->images[index].header = textures[index].header;
+        if (!append_resource(asset, textures[index], images_ptr->images[index].blocks)) return false;
+    }
+    if (!umbf::create_write_descriptor(asset.header, file).success()) return false;
+    return write_scene_asset(asset, file, compressed);
 }
 
 acul::unique_ptr<aecl::scene::ILoader> import_mesh(const acul::string &input)
@@ -414,13 +562,13 @@ acul::unique_ptr<aecl::scene::ILoader> import_mesh(const acul::string &input)
         const auto result = obj_loader->load();
         if (!result.success())
         {
-            LOG_ERROR("Failed to load obj '%s': %s (0x%016" PRIx64 ")", obj_loader->path().c_str(),
+            LOG_ERROR("failed to load obj: path='%s' error='%s' result=0x%" PRIx64, obj_loader->path().c_str(),
                       obj_loader->error().c_str(), static_cast<u64>(result));
             return nullptr;
         }
         return obj_loader;
     }
-    LOG_ERROR("Unsupported mesh format: %s", ext.c_str());
+    LOG_ERROR("unsupported mesh format: %s", ext.c_str());
     return nullptr;
 }
 
@@ -431,62 +579,23 @@ u32 convert_scene(const acul::string &input, const acul::string &output, bool co
 
     umbf::WriteDescriptor file;
     create_file_structure(file, umbf::sign_block::format::scene, false, output);
-
-    auto &object_im = importer->objects();
-    auto objects_fl = create_file_list(umbf::sign_block::format::scene_objects_list);
-    for (u64 index = 0u; index < object_im.size(); ++index)
-    {
-        const auto &resource = object_im[index];
-        if (object_im[index].blocks.empty())
-        {
-            LOG_ERROR("Invalid scene object #%" PRIu64, index);
-            return 0;
-        }
-        umbf::WriteDescriptor serialized;
-        if (!serialize_resource(resource, compressed, serialized)) return 0;
-        umbf::add_file(objects_fl, serialized);
-    }
-
-    auto &images_im = importer->images();
-    auto images_fl = create_file_list(umbf::sign_block::format::images_list);
-    for (u64 index = 0u; index < images_im.size(); ++index)
-    {
-        const auto &resource = images_im[index];
-        if (images_im[index].blocks.empty())
-        {
-            LOG_ERROR("Invalid image #%" PRIu64, index);
-            return 0;
-        }
-        umbf::WriteDescriptor serialized;
-        if (!serialize_resource(resource, compressed, serialized)) return 0;
-        umbf::add_file(images_fl, serialized);
-    }
-
-    auto &materials_im = importer->materials();
-    auto materials_fl = create_file_list(umbf::sign_block::format::materials_list);
-    for (u64 index = 0u; index < materials_im.size(); ++index)
-    {
-        const auto &resource = materials_im[index];
-        if (materials_im[index].blocks.empty())
-        {
-            LOG_ERROR("Invalid material #%" PRIu64, index);
-            return 0;
-        }
-        umbf::WriteDescriptor serialized;
-        if (!serialize_resource(resource, compressed, serialized)) return 0;
-        umbf::add_file(materials_fl, serialized);
-    }
-    umbf::add_file(file, objects_fl);
-    umbf::add_file(file, images_fl);
-    umbf::add_file(file, materials_fl);
+    auto &objects = importer->objects();
+    auto &images = importer->images();
+    auto &materials = importer->materials();
+    aecl::Asset scene;
+    aecl::create_asset_structure(scene, umbf::sign_block::format::scene);
+    if (!append_scene_resources(scene, objects, materials, images) || !write_scene_asset(scene, file, compressed))
+        return 0;
     return umbf::save_file(file, output) ? file.file->checksum : 0;
 }
 
-bool convert_scene(models::Scene &scene, bool compressed, umbf::WriteDescriptor &file,
-                   const acul::string &work_dir)
+bool convert_scene(models::Scene &scene, bool compressed, umbf::WriteDescriptor &file, const acul::string &work_dir)
 {
-    create_file_structure(file, umbf::sign_block::format::scene, false);
-    auto objects_fl = create_file_list(umbf::sign_block::format::scene_objects_list);
+    aecl::Asset scene_asset;
+    aecl::create_asset_structure(scene_asset, umbf::sign_block::format::scene);
+    acul::vector<aecl::Asset> objects;
+    acul::vector<aecl::Asset> images;
+    acul::vector<aecl::Asset> materials;
     acul::vector<acul::vector<u64>> materials_ids(scene.materials().size());
     for (auto &mesh : scene.meshes())
     {
@@ -495,90 +604,80 @@ bool convert_scene(models::Scene &scene, bool compressed, umbf::WriteDescriptor 
         auto &objects_im = importer->objects();
         for (u64 index = 0u; index < objects_im.size(); ++index)
         {
-            const auto &object = objects_im[index];
-            if (objects_im[index].blocks.empty())
+            auto &object = objects_im[index];
+            if (object.blocks.empty())
             {
-                LOG_ERROR("Failed to obtain imported scene object #%" PRIu64, index);
+                LOG_ERROR("failed to obtain imported scene object: #%" PRIu64, index);
                 return false;
             }
-            acul::shared_ptr<umbf::ObjectInfo> descriptor;
-            for (const auto &block : object.blocks)
-            {
-                if (block && block->signature() == umbf::sign_block::object_info)
-                {
-                    descriptor = acul::static_pointer_cast<umbf::ObjectInfo>(block);
-                    break;
-                }
-            }
+            const auto *descriptor =
+                static_cast<const umbf::ObjectInfo *>(umbf::find_block(object.blocks, umbf::sign_block::object_info));
             if (!descriptor)
             {
-                LOG_ERROR("Imported scene object has no descriptor block");
+                LOG_ERROR("imported scene object has no descriptor block");
                 return false;
             }
-            umbf::WriteDescriptor serialized;
-            if (!serialize_resource(object, compressed, serialized)) return false;
-            umbf::add_file(objects_fl, serialized);
             if (mesh->mat_id() >= 0 && static_cast<size_t>(mesh->mat_id()) < materials_ids.size())
                 materials_ids[static_cast<size_t>(mesh->mat_id())].push_back(descriptor->id);
+            objects.push_back(std::move(object));
         }
     }
 
-    auto images = create_file_list(umbf::sign_block::format::images_list);
     u32 image_count = 0u;
     for (auto &texture : scene.textures())
     {
-        umbf::WriteDescriptor texture_file;
-        if (convert_image(texture, compressed, texture_file, work_dir))
-        {
-            umbf::add_file(images, texture_file);
-            ++image_count;
-        }
-        else return false;
+        images.emplace_back();
+        if (!make_image_asset(texture, images.back(), work_dir)) return false;
+        ++image_count;
     }
 
-    auto materials = create_file_list(umbf::sign_block::format::materials_list);
+    materials.reserve(scene.materials().size());
     for (size_t i = 0; i < scene.materials().size(); ++i)
     {
         auto &material = scene.materials()[i];
-        umbf::WriteDescriptor material_file;
+        materials.emplace_back();
+        auto &material_asset = materials.back();
         if (material.asset->type_sign == umbf::sign_block::format::material)
         {
             auto material_model = acul::static_pointer_cast<models::Material>(material.asset);
-            umbf::Material data;
-            data.albedo = material_model->albedo();
-            if (data.albedo.textured) data.albedo.texture_id += static_cast<i16>(image_count);
+            aecl::create_asset_structure(material_asset, umbf::sign_block::format::material);
+            auto data = acul::make_unique<umbf::Material>();
+            data->albedo = material_model->albedo();
+            if (data->albedo.textured) data->albedo.texture_id += static_cast<i16>(image_count);
             for (auto &texture : material_model->textures())
             {
-                umbf::WriteDescriptor texture_file;
-                if (!convert_image(texture, compressed, texture_file, work_dir)) return false;
-                umbf::add_file(images, texture_file);
+                images.emplace_back();
+                if (!make_image_asset(texture, images.back(), work_dir)) return false;
                 ++image_count;
             }
-            create_file_structure(material_file, umbf::sign_block::format::material, false);
-            umbf::add_block(material_file, &data);
+            material_asset.blocks.push_back(std::move(data));
         }
         else if (material.asset->type_sign == umbf::sign_block::format::target)
         {
             const auto target_model = acul::static_pointer_cast<models::Target>(material.asset);
-            convert_target(*target_model, false, material_file, work_dir);
+            aecl::create_asset_structure(material_asset, umbf::sign_block::format::target);
+            auto target = acul::make_unique<umbf::Target>();
+            target->url = resolve_local_path(target_model->url(), work_dir);
+            target->header = target_model->header();
+            target->checksum = target_model->checksum();
+            target->tag = target_model->tag();
+            material_asset.blocks.push_back(std::move(target));
         }
         else
         {
-            LOG_ERROR("Unsupported material type: %x", material.asset->type_sign);
+            LOG_ERROR("unsupported material type: %x", material.asset->type_sign);
             return false;
         }
-        umbf::MaterialBinding info;
-        info.name = material.name;
-        info.id = acul::id_gen()();
-        for (auto &id : materials_ids[i]) info.assignments.push_back(id);
-        umbf::add_block(material_file, &info);
-        umbf::add_file(materials, material_file);
+        auto info = acul::make_unique<umbf::MaterialBinding>();
+        info->name = material.name;
+        info->id = acul::id_gen()();
+        for (auto &id : materials_ids[i]) info->assignments.push_back(id);
+        material_asset.blocks.push_back(std::move(info));
     }
 
-    umbf::add_file(file, objects_fl);
-    umbf::add_file(file, images);
-    umbf::add_file(file, materials);
-    return true;
+    if (!append_scene_resources(scene_asset, objects, materials, images)) return false;
+    if (!umbf::create_write_descriptor(scene_asset.header, file).success()) return false;
+    return write_scene_asset(scene_asset, file, compressed);
 }
 
 void prepare_library_node(const models::FileNode &src, umbf::Library::Node &dst,
@@ -649,8 +748,7 @@ u32 convert_library(const models::Library &library, const acul::string &output, 
     return umbf::save_file(file, output) ? file.file->checksum : 0;
 }
 
-u32 convert_json(const acul::string &input, const acul::string &output, bool compressed,
-                 const acul::string &work_dir)
+u32 convert_json(const acul::string &input, const acul::string &output, bool compressed, const acul::string &work_dir)
 {
     rapidjson::Document json;
     models::UMBFRoot root;
@@ -666,7 +764,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             models::Image image;
             if (!image.deserialize_object(json))
             {
-                LOG_ERROR("Failed to deserialize image: %s", input.c_str());
+                LOG_ERROR("failed to deserialize image: %s", input.c_str());
                 return 0;
             }
             umbf::WriteDescriptor file;
@@ -679,7 +777,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             models::Material material;
             if (!material.deserialize_object(json))
             {
-                LOG_ERROR("Failed to deserialize material: %s", input.c_str());
+                LOG_ERROR("failed to deserialize material: %s", input.c_str());
                 return 0;
             }
             umbf::WriteDescriptor file;
@@ -692,7 +790,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             models::Scene scene;
             if (!scene.deserialize_object(json))
             {
-                LOG_ERROR("Failed to deserialize scene: %s", input.c_str());
+                LOG_ERROR("failed to deserialize scene: %s", input.c_str());
                 return 0;
             }
             umbf::WriteDescriptor file;
@@ -705,7 +803,7 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             models::Target target;
             if (!target.deserialize_object(json))
             {
-                LOG_ERROR("Failed to deserialize target: %s", input.c_str());
+                LOG_ERROR("failed to deserialize target: %s", input.c_str());
                 return 0;
             }
             umbf::WriteDescriptor file;
@@ -718,13 +816,13 @@ u32 convert_json(const acul::string &input, const acul::string &output, bool com
             models::Library library;
             if (!library.deserialize_object(json))
             {
-                LOG_ERROR("Failed to deserialize library: %s", input.c_str());
+                LOG_ERROR("failed to deserialize library: %s", input.c_str());
                 return 0;
             }
             return convert_library(library, output, compressed, work_dir);
         }
         default:
-            LOG_ERROR("Unsupported type: %x", root.type_sign);
+            LOG_ERROR("unsupported type: %x", root.type_sign);
             return 0;
     }
 }
